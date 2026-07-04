@@ -1,0 +1,119 @@
+# =============================================================================
+# Commerce Insight AI — Docker Compose
+# Services: postgres, pgadmin, backend, frontend, mcp-server
+# =============================================================================
+# NOTE: This is a placeholder. Service configurations will be finalized
+#       when each module is implemented.
+# =============================================================================
+
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: cia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-commerceinsight}
+      POSTGRES_USER: ${POSTGRES_USER:-cia_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cia_user} -d ${POSTGRES_DB:-commerceinsight}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cia-network
+
+  # ── PgAdmin (Dev Utility) ───────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cia-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cia.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cia-network
+    profiles:
+      - dev-tools
+
+  # ── Backend (Spring Boot) ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cia-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-commerceinsight}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-cia_user}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      JWT_SECRET: ${JWT_SECRET:-placeholder-secret-change-in-production}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - cia-network
+    # TODO: Add Dockerfile when backend is implemented
+
+  # ── Frontend (React + Vite) ─────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cia-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - cia-network
+    # TODO: Add Dockerfile when frontend is implemented
+
+  # ── MCP Server ──────────────────────────────────────────────────────────────
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    container_name: cia-mcp-server
+    restart: unless-stopped
+    environment:
+      PORT: ${MCP_PORT:-3001}
+      BACKEND_API_URL: ${BACKEND_API_URL:-http://backend:8080}
+      MCP_API_KEY: ${MCP_API_KEY:-placeholder-mcp-key}
+    ports:
+      - "3001:3001"
+    depends_on:
+      - backend
+    networks:
+      - cia-network
+    # TODO: Add Dockerfile when MCP server is implemented
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  cia-network:
+    driver: bridge

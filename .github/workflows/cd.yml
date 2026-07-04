@@ -1,0 +1,35 @@
+# =============================================================================
+# CD Pipeline — Commerce Insight AI
+# Triggers on push to main branch only (after CI passes).
+# =============================================================================
+# NOTE: This is a placeholder. Finalize when deployment target is decided.
+#       See docs/13_DEVOPS.md for deployment strategy.
+# =============================================================================
+
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+
+  # ── Deploy (Placeholder) ───────────────────────────────────────────────────
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: []  # TODO: Add 'ci' job as dependency when workflow_call is set up
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        run: |
+          echo "TODO: Implement deployment steps."
+          echo "Options:"
+          echo "  - Docker build & push to registry"
+          echo "  - SSH deploy to VPS"
+          echo "  - Deploy to cloud provider (Railway, Render, AWS, etc.)"
+          echo "See docs/13_DEVOPS.md for the deployment plan."

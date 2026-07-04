@@ -1,0 +1,119 @@
+# =============================================================================
+# CI Pipeline — Commerce Insight AI
+# Triggers on push/PR to main and develop branches.
+# =============================================================================
+# NOTE: This is a placeholder. Finalize when implementation begins.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+
+  # ── Backend: Build & Test ──────────────────────────────────────────────────
+  backend:
+    name: Backend (Java / Spring Boot)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: commerceinsight_test
+          POSTGRES_USER: cia_user
+          POSTGRES_PASSWORD: testpassword
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and Test
+        run: ./mvnw verify -Dspring.profiles.active=test
+        working-directory: backend
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/commerceinsight_test
+          SPRING_DATASOURCE_USERNAME: cia_user
+          SPRING_DATASOURCE_PASSWORD: testpassword
+          JWT_SECRET: test-secret-for-ci-only
+
+      # TODO: Publish test results when tests are implemented
+      # - name: Publish Test Report
+      #   uses: dorny/test-reporter@v1
+
+  # ── Frontend: Lint, Type-Check & Build ────────────────────────────────────
+  frontend:
+    name: Frontend (React / TypeScript)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Type check
+        run: npm run type-check
+        working-directory: frontend
+
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: http://localhost:8080
+
+  # ── MCP Server: Type-Check & Build ────────────────────────────────────────
+  mcp-server:
+    name: MCP Server (Node.js / TypeScript)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: mcp-server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: mcp-server
+
+      - name: Type check
+        run: npm run type-check
+        working-directory: mcp-server
+
+      - name: Build
+        run: npm run build
+        working-directory: mcp-server

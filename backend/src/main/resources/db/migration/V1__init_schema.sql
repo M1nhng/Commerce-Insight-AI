@@ -1,0 +1,29 @@
+-- =============================================================================
+-- V1 — Initial Schema
+-- Commerce Insight AI
+-- =============================================================================
+-- TODO: Implement table definitions when domain models are finalized.
+--       Follow the schema design in docs/04_DATABASE.md.
+-- =============================================================================
+--
+-- Planned tables:
+--   users           — User accounts and profile data
+--   roles           — System roles (ADMIN, MANAGER, VIEWER)
+--   user_roles      — User-role join table
+--   products        — Product catalog
+--   categories      — Product categories (tree structure)
+--   orders          — Customer orders
+--   order_items     — Order line items
+--   analytics_cache — Pre-computed analytics snapshots
+--   ai_insights     — AI-generated insights and recommendations
+--   notifications   — In-app notification records
+--   import_jobs     — Data import job tracking
+--
+-- Conventions:
+--   - All PKs are UUID type (gen_random_uuid())
+--   - All tables have: created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ
+--   - Soft-delete via: deleted_at TIMESTAMPTZ (nullable)
+-- =============================================================================
+
+-- Placeholder: schema will be populated in the implementation phase.
+SELECT 1;
