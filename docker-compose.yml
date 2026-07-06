@@ -1,56 +1,45 @@
 # =============================================================================
 # Commerce Insight AI — Docker Compose
-# Services: postgres, pgadmin, backend, frontend, mcp-server
 # =============================================================================
-# NOTE: This is a placeholder. Service configurations will be finalized
-#       when each module is implemented.
+# Services:
+#   - postgres    (PostgreSQL 16)
+#   - backend     (Spring Boot API — port 8080)
+#   - frontend    (React SPA via Nginx — port 5173)
+#   - mcp-server  (Node.js MCP Server — port 3001)
+#   - pgadmin     (PostgreSQL Admin UI — port 5050, dev profile only)
+#
+# Usage:
+#   Development:  docker compose up
+#   With PgAdmin: docker compose --profile dev-tools up
+#   Production:   docker compose -f docker-compose.yml -f docker-compose.prod.yml up
 # =============================================================================
-
-version: "3.9"
 
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  # ── PostgreSQL 16 ─────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: cia-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-commerceinsight}
-      POSTGRES_USER: ${POSTGRES_USER:-cia_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${DB_NAME:-commerce_insight}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - cia-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cia_user} -d ${POSTGRES_DB:-commerceinsight}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d ${DB_NAME:-commerce_insight}"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - cia-network
+      start_period: 10s
 
-  # ── PgAdmin (Dev Utility) ───────────────────────────────────────────────────
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: cia-pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cia.dev}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
-    ports:
-      - "5050:80"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - cia-network
-    profiles:
-      - dev-tools
-
-  # ── Backend (Spring Boot) ───────────────────────────────────────────────────
+  # ── Spring Boot Backend ───────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
@@ -59,20 +48,36 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-commerceinsight}
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-cia_user}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
-      JWT_SECRET: ${JWT_SECRET:-placeholder-secret-change-in-production}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-commerce_insight}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production-must-be-32-chars-minimum}
+      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_DAYS: ${JWT_REFRESH_EXPIRATION_DAYS:-7}
+      MCP_API_KEY: ${MCP_API_KEY:-mcp-dev-secret-key-change-in-production}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+      SERVER_PORT: 8080
+      JAVA_OPTS: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75.0
+        -Djava.security.egd=file:/dev/./urandom
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
+    networks:
+      - cia-network
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - cia-network
-    # TODO: Add Dockerfile when backend is implemented
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
-  # ── Frontend (React + Vite) ─────────────────────────────────────────────────
+  # ── React Frontend ────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -81,15 +86,16 @@ services:
     restart: unless-stopped
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+      VITE_APP_NAME: "Commerce Insight AI"
     ports:
-      - "5173:80"
-    depends_on:
-      - backend
+      - "${FRONTEND_PORT:-5173}:80"
     networks:
       - cia-network
-    # TODO: Add Dockerfile when frontend is implemented
+    depends_on:
+      backend:
+        condition: service_healthy
 
-  # ── MCP Server ──────────────────────────────────────────────────────────────
+  # ── MCP Server ────────────────────────────────────────────────────────────
   mcp-server:
     build:
       context: ./mcp-server
@@ -97,23 +103,51 @@ services:
     container_name: cia-mcp-server
     restart: unless-stopped
     environment:
-      PORT: ${MCP_PORT:-3001}
-      BACKEND_API_URL: ${BACKEND_API_URL:-http://backend:8080}
-      MCP_API_KEY: ${MCP_API_KEY:-placeholder-mcp-key}
+      NODE_ENV: ${NODE_ENV:-development}
+      BACKEND_BASE_URL: http://backend:8080
+      MCP_API_KEY: ${MCP_API_KEY:-mcp-dev-secret-key-change-in-production}
+      MCP_SERVER_PORT: 3001
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
-      - "3001:3001"
-    depends_on:
-      - backend
+      - "${MCP_PORT:-3001}:3001"
     networks:
       - cia-network
-    # TODO: Add Dockerfile when MCP server is implemented
+    depends_on:
+      backend:
+        condition: service_healthy
 
-# ── Volumes ──────────────────────────────────────────────────────────────────
-volumes:
-  postgres_data:
-    driver: local
+  # ── PgAdmin (dev-tools profile only) ─────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cia-pgadmin
+    restart: unless-stopped
+    profiles:
+      - dev-tools
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@commerceinsight.ai}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    networks:
+      - cia-network
+    depends_on:
+      - postgres
 
-# ── Networks ─────────────────────────────────────────────────────────────────
+# ── Networks ──────────────────────────────────────────────────────────────
 networks:
   cia-network:
     driver: bridge
+    name: cia-network
+
+# ── Volumes ───────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+    name: cia-postgres-data
+  pgadmin_data:
+    driver: local
+    name: cia-pgadmin-data
