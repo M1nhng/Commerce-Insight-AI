@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * UserDetailsServiceImpl — loads user details from the database for Spring Security.
@@ -33,14 +34,21 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     /**
      * Load a user by their UUID string (the JWT subject claim).
      *
-     * @param userId the user's UUID as a string
+     * @param userId the user's UUID as a string (must be a valid UUID)
      * @return fully populated UserDetails
-     * @throws UsernameNotFoundException if no user exists with this UUID
+     * @throws UsernameNotFoundException if no user exists with this UUID or UUID is malformed
      */
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String userId) throws UsernameNotFoundException {
-        User user = userRepository.findByIdString(userId)
+        UUID userUuid;
+        try {
+            userUuid = UUID.fromString(userId);
+        } catch (IllegalArgumentException ex) {
+            throw new UsernameNotFoundException("Invalid user ID format: " + userId);
+        }
+
+        User user = userRepository.findById(userUuid)
                 .orElseThrow(() -> {
                     log.debug("User not found for ID: {}", userId);
                     return new UsernameNotFoundException("User not found: " + userId);
