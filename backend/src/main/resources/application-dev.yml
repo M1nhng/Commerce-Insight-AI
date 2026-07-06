@@ -1,42 +1,23 @@
-# =============================================================================
-# Commerce Insight AI — Development Profile
-# Activated with: -Dspring-boot.run.profiles=dev
-# =============================================================================
-
 spring:
-  # ── DataSource ─────────────────────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://localhost:5432/commerceinsight
-    username: cia_user
-    password: changeme
-    driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 5
-      connection-timeout: 30000
-
-  # ── JPA ────────────────────────────────────────────────────────────────────
+    url: jdbc:postgresql://localhost:5432/commerce_insight_dev
+    username: postgres
+    password: postgres
   jpa:
     show-sql: true
-    hibernate:
-      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
 
-  # ── DevTools ───────────────────────────────────────────────────────────────
-  devtools:
-    restart:
-      enabled: true
-    livereload:
-      enabled: true
-
-# ── Logging ───────────────────────────────────────────────────────────────────
 logging:
   level:
-    root: INFO
     com.commerceinsight: DEBUG
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.hibernate.orm.jdbc.bind: TRACE
 
-# ── Dev overrides ─────────────────────────────────────────────────────────────
 app:
   cors:
-    allowed-origins: http://localhost:5173,http://localhost:3001
+    allowed-origins: http://localhost:5173,http://localhost:3000,http://localhost:4173

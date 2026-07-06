@@ -1,0 +1,210 @@
+package com.commerceinsight.exception;
+
+import com.commerceinsight.shared.dto.ApiResponse;
+import com.commerceinsight.shared.dto.ErrorResponse;
+import com.commerceinsight.shared.exception.ErrorCode;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.validation.BindException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * GlobalExceptionHandler — centralized exception-to-HTTP-response mapping.
+ *
+ * <p>Architecture Rule: ALL exceptions must be caught here.
+ * Controllers must NEVER catch exceptions themselves — they must propagate.
+ * Business services throw domain exceptions; this handler maps them to responses.
+ *
+ * <p>No internal stack traces or server details are ever exposed to clients.
+ */
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    // ── Domain Exceptions ────────────────────────────────────────────────
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(
+            ResourceNotFoundException ex, HttpServletRequest request) {
+        log.debug("Resource not found at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(ErrorResponse.of(ex.getErrorCode().name(), ex.getMessage())));
+    }
+
+    @ExceptionHandler(BusinessRuleException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessRule(
+            BusinessRuleException ex, HttpServletRequest request) {
+        log.warn("Business rule violation at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.error(ErrorResponse.of(ex.getErrorCode().name(), ex.getMessage())));
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDuplicateResource(
+            DuplicateResourceException ex, HttpServletRequest request) {
+        log.debug("Duplicate resource at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ErrorResponse.of(ex.getErrorCode().name(), ex.getMessage())));
+    }
+
+    @ExceptionHandler(ImportException.class)
+    public ResponseEntity<ApiResponse<Void>> handleImport(
+            ImportException ex, HttpServletRequest request) {
+        log.warn("Import error at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.IMPORT_VALIDATION_FAILED.name(), ex.getMessage())));
+    }
+
+    // ── Validation ───────────────────────────────────────────────────────
+
+    /**
+     * Handles @Valid / @Validated failures on @RequestBody.
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidation(
+            MethodArgumentNotValidException ex) {
+        List<ErrorResponse.FieldError> details = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(fe -> ErrorResponse.FieldError.of(fe.getField(), fe.getDefaultMessage()))
+                .collect(Collectors.toList());
+        log.debug("Validation failed: {} field errors", details.size());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorResponse.withDetails(
+                        ErrorCode.VALIDATION_ERROR.name(),
+                        "Request validation failed",
+                        details)));
+    }
+
+    /**
+     * Handles @Valid on @ModelAttribute or form data.
+     */
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBindException(BindException ex) {
+        List<ErrorResponse.FieldError> details = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(fe -> ErrorResponse.FieldError.of(fe.getField(), fe.getDefaultMessage()))
+                .collect(Collectors.toList());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorResponse.withDetails(
+                        ErrorCode.VALIDATION_ERROR.name(), "Binding validation failed", details)));
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMissingParam(
+            MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.VALIDATION_ERROR.name(),
+                        "Required parameter '" + ex.getParameterName() + "' is missing")));
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.VALIDATION_ERROR.name(),
+                        "Invalid value for parameter '" + ex.getName() + "'")));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.VALIDATION_ERROR.name(), "Request body is malformed or missing")));
+    }
+
+    // ── Security ─────────────────────────────────────────────────────────
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.ACCESS_DENIED.name(), "You do not have permission to perform this action")));
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentials(BadCredentialsException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.INVALID_CREDENTIALS.name(), "Invalid email or password")));
+    }
+
+    @ExceptionHandler(DisabledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDisabled(DisabledException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.ACCOUNT_DISABLED.name(), "Your account has been deactivated")));
+    }
+
+    @ExceptionHandler(LockedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleLocked(LockedException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.ACCOUNT_LOCKED.name(), "Your account is locked. Please contact an administrator")));
+    }
+
+    @ExceptionHandler(ExpiredJwtException.class)
+    public ResponseEntity<ApiResponse<Void>> handleExpiredJwt(ExpiredJwtException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.TOKEN_EXPIRED.name(), "Access token has expired")));
+    }
+
+    @ExceptionHandler(JwtException.class)
+    public ResponseEntity<ApiResponse<Void>> handleJwtException(JwtException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.TOKEN_INVALID.name(), "Access token is invalid")));
+    }
+
+    // ── HTTP Protocol ─────────────────────────────────────────────────────
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex) {
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        "METHOD_NOT_ALLOWED", ex.getMessage())));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.RESOURCE_NOT_FOUND.name(), "The requested endpoint does not exist")));
+    }
+
+    // ── Catch-All ────────────────────────────────────────────────────────
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleAll(
+            Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ApiResponse.error(ErrorResponse.of(
+                        ErrorCode.INTERNAL_ERROR.name(),
+                        "An unexpected error occurred. Please try again later")));
+    }
+}
