@@ -1,72 +1,121 @@
-# =============================================================================
-# Commerce Insight AI — Base Application Configuration
-# Active profile overrides in application-{dev|prod}.yml
-# =============================================================================
-
 spring:
   application:
     name: commerce-insight-ai
 
-  # ── JPA ────────────────────────────────────────────────────────────────────
+  # ── DataSource ──────────────────────────────────────────────────────────
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:commerce_insight}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: CommerceInsightPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+
+  # ── JPA / Hibernate ──────────────────────────────────────────────────────
   jpa:
-    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+        globally_quoted_identifiers: false
+        default_batch_fetch_size: 20
+    open-in-view: false
 
-  # ── Flyway ─────────────────────────────────────────────────────────────────
+  # ── Flyway ───────────────────────────────────────────────────────────────
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: false
     validate-on-migrate: true
+    out-of-order: false
+    fail-on-missing-locations: true
 
-  # ── Jackson ────────────────────────────────────────────────────────────────
+  # ── Jackson ──────────────────────────────────────────────────────────────
   jackson:
+    default-property-inclusion: non_null
     serialization:
       write-dates-as-timestamps: false
+      indent-output: false
     deserialization:
       fail-on-unknown-properties: false
-    default-property-inclusion: non_null
+    time-zone: UTC
 
-# ── Server ────────────────────────────────────────────────────────────────────
+  # ── Web ──────────────────────────────────────────────────────────────────
+  web:
+    resources:
+      add-mappings: false
+
+# ── Server ────────────────────────────────────────────────────────────────
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
   servlet:
-    context-path: /api
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+    min-response-size: 1024
   error:
-    include-message: always
-    include-binding-errors: always
+    include-message: never
+    include-stacktrace: never
+    include-exception: false
 
-# ── Actuator ─────────────────────────────────────────────────────────────────
+# ── Actuator ──────────────────────────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics
+      base-path: /actuator
   endpoint:
     health:
       show-details: when-authorized
 
-# ── OpenAPI / Swagger ─────────────────────────────────────────────────────────
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    operationsSorter: method
+# ── Logging ───────────────────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.commerceinsight: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
-# ── JWT (override secret in environment!) ────────────────────────────────────
+# ── Application Custom Properties ─────────────────────────────────────────
 app:
+  # JWT
   jwt:
-    secret: ${JWT_SECRET:PLACEHOLDER_CHANGE_IN_ENV}
-    expiration-ms: 86400000        # 24 hours
-    refresh-expiration-ms: 604800000  # 7 days
+    secret: ${JWT_SECRET:your-256-bit-secret-must-be-at-least-32-characters-long-change-in-prod}
+    access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}       # 15 minutes
+    refresh-token-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}       # 7 days
+    issuer: commerce-insight-ai
 
-# ── CORS ──────────────────────────────────────────────────────────────────────
+  # CORS
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
     allowed-headers: "*"
     allow-credentials: true
+    max-age: 3600
+
+  # MCP Server
+  mcp:
+    api-key: ${MCP_API_KEY:mcp-dev-secret-key-change-in-production}
+
+  # OpenAPI
+  openapi:
+    title: Commerce Insight AI API
+    description: AI-powered Ecommerce Analytics Platform REST API
+    version: 1.0.0
+    contact-name: Commerce Insight AI Team
+    contact-email: api@commerceinsight.ai
