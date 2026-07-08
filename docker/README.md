@@ -39,10 +39,14 @@ docker-compose up -d postgres
 docker-compose up -d
 
 # Start with dev tools (pgadmin)
-docker-compose --profile dev-tools up -d
+docker-compose --profile dev-tools up -d pgadmin
 
 # View logs
 docker-compose logs -f backend
+
+#docker down (pgadmin)
+docker-compose --profile dev-tools down
+
 ```
 
 ---

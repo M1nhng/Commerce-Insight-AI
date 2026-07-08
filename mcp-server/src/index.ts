@@ -7,26 +7,44 @@
  * CRITICAL CONSTRAINT:
  *   This server NEVER accesses the database directly.
  *   All data is fetched via the Spring Boot REST API.
- *
- * Architecture:
- *   AI Agent → MCP Protocol → This Server → HTTP REST → Spring Boot API → PostgreSQL
- *
- * TODO: Implement when MCP phase begins (see docs/09_MCP.md):
- *   1. Initialize MCP Server with SDK
- *   2. Register all tools (analytics, products, orders, ai)
- *   3. Register resources and prompts
- *   4. Configure transport (stdio or SSE)
  */
 
-import 'dotenv/config'
-import { config } from './config/index.js'
+import { config } from './config/index.js';
+import { logger } from './utils/logger.js';
+import { CommerceInsightMcpServer } from './server.js';
+import { startHealthCheckServer } from './health.js';
 
-// Placeholder — server initialization will go here
-console.log(`Commerce Insight AI MCP Server`)
-console.log(`Backend API: ${config.backendApiUrl}`)
-console.log(`Port: ${config.port}`)
-console.log(`Status: 🚧 Not yet implemented`)
+// Setup global error handlers for uncaught exceptions
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception', { error });
+  process.exit(1);
+});
 
-// TODO: Initialize McpServer from @modelcontextprotocol/sdk
-// TODO: Register tools, resources, prompts
-// TODO: Start transport (stdio / SSE)
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled Rejection', { reason });
+});
+
+async function main() {
+  logger.info(`Commerce Insight AI MCP Server starting...`);
+  logger.info(`Backend API: ${config.backendApiUrl}`);
+  logger.info(`Log Level: ${config.logLevel.toUpperCase()}`);
+
+  // 1. Start the health check server
+  startHealthCheckServer();
+
+  // 2. Initialize the MCP Server
+  const mcpServer = new CommerceInsightMcpServer();
+
+  // Note: Providers (tools, resources) would be registered here:
+  // const registry = mcpServer.getRegistry();
+  // registry.registerProvider(new RevenueToolsProvider());
+  // ...
+
+  // 3. Connect and start
+  await mcpServer.start();
+}
+
+main().catch((error) => {
+  logger.error('Fatal error during startup', { error });
+  process.exit(1);
+});

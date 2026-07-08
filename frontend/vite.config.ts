@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
-// https://vite.dev/config/
+// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
@@ -11,14 +11,16 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
+      // @/ maps to src/ — matching tsconfig paths
       '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
     port: 5173,
+    // Proxy API calls to Spring Boot in dev
     proxy: {
       '/api': {
-        target: process.env.VITE_API_BASE_URL || 'http://localhost:8080',
+        target: 'http://localhost:8080',
         changeOrigin: true,
       },
     },
