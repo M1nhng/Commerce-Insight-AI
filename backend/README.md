@@ -108,55 +108,108 @@ backend/
 
 ### Prerequisites
 - Java 17+
-- Docker (for PostgreSQL)
-- Maven 3.9+
+- Docker Desktop (for PostgreSQL)
+- Maven 3.9+ **or** use the IntelliJ bundled Maven
 
-### Steps
+### Step 1 — Start PostgreSQL
 
 ```bash
-# 1. Start PostgreSQL
 docker-compose up -d postgres
+```
 
-# 2. Run with dev profile
+> PostgreSQL will be available at `localhost:5050`  
+> Database: `commerce_insight_dev` | User: `postgres` | Password: `postgres`
+
+### Step 2 — Run the Application
+
+**Windows — PowerShell:**
+```powershell
+# Set JAVA_HOME to your JDK 17 path, then run:
+$env:JAVA_HOME = "D:\Folder_phan_mem\jdk17"   # adjust to your actual JDK path
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+**Windows — CMD:**
+```cmd
+set JAVA_HOME=D:\Folder_phan_mem\jdk17
+mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+**Linux / macOS:**
+```bash
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
 ```
 
-API will be available at: `http://localhost:8080`
+> 💡 **Tip:** Set `JAVA_HOME` permanently via Windows System Properties → Environment Variables  
+> to avoid specifying it every time.
+>
+> **No Maven installation needed** — the Maven Wrapper (`mvnw.cmd`) downloads  
+> Maven 3.9.11 automatically on first run.
 
-Swagger UI: `http://localhost:8080/swagger-ui.html`
+### Step 3 — Verify
+
+```
+API:        http://localhost:8080
+Swagger UI: http://localhost:8080/swagger-ui.html
+Health:     http://localhost:8080/actuator/health
+```
+
+**Default admin credentials:**
+```
+Email:    admin@commerceinsight.ai
+Password: Admin@123456
+```
 
 ---
 
 ## Configuration
 
 All environment-specific configuration is in:
-- `src/main/resources/application-dev.yml` — local development
+- `src/main/resources/application.yml` — shared defaults (env-var overrides)
+- `src/main/resources/application-dev.yml` — local development overrides
 - `src/main/resources/application-prod.yml` — production (secrets via env vars)
 
 **Never commit** real credentials. Use environment variables in production.
+
+Key env vars for production:
+
+| Variable | Description |
+|---|---|
+| `DB_HOST` | PostgreSQL host |
+| `DB_PASSWORD` | Database password |
+| `JWT_SECRET` | Min 64-char alphanumeric string |
+| `MCP_API_KEY` | MCP server shared secret |
 
 ---
 
 ## Database Migrations
 
-Flyway runs automatically on startup.
+Flyway runs automatically on startup. Migrations are in `src/main/resources/db/migration/`.
 
-```bash
-# Run migrations manually via helper script
-../scripts/migrate.sh
+```powershell
+# Repair checksum after editing a migration (dev only)
+mvn flyway:repair -Dflyway.url=jdbc:postgresql://localhost:5432/commerce_insight_dev `
+    -Dflyway.user=postgres -Dflyway.password=postgres
 ```
 
-Migration files follow the naming convention: `V{n}__{description}.sql`
+Migration naming convention: `V{n}__{description}.sql`
 
 ---
 
 ## Testing
 
-```bash
+**Windows:**
+```powershell
 # Run all tests
-./mvnw test
+.\mvnw.cmd test
 
-# Run with coverage report
+# Run with coverage
+.\mvnw.cmd verify
+```
+
+**Linux / macOS:**
+```bash
+./mvnw test
 ./mvnw verify
 ```
 
@@ -166,4 +219,12 @@ See [12_TESTING.md](../docs/12_TESTING.md) for the full testing strategy.
 
 ## Status
 
-🚧 **Structure initialized** — No business logic implemented yet.
+✅ **Sprint 3 complete** — Foundation + Authentication module implemented and tested.
+
+| Module | Status |
+|---|---|
+| Spring Boot Foundation | ✅ Done |
+| JWT Authentication | ✅ Done |
+| Flyway Migrations (V1–V11) | ✅ Done |
+| Unit + Integration Tests (19/19) | ✅ Passing |
+| Docker + docker-compose | ✅ Done |

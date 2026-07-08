@@ -27,8 +27,8 @@ INSERT INTO users (
 ) VALUES (
     'a0000000-0000-0000-0000-000000000001',
     'admin@commerceinsight.ai',
-    -- BCrypt hash of 'Admin@123456' (strength 12) — CHANGE IN PRODUCTION
-    '$2a$12$1oJH.Cz.Kn3UJKMiIReyOuhZl0U.vMSYiNJNEoHlSLbSp5hpDJLS',
+    -- BCrypt hash of 'Admin@123456' (strength 12, $2b format) — CHANGE IN PRODUCTION
+    '$2b$12$PsNLhyqKzC7vnpBNTggXpOlJZzgMNWx/Ks1hSIpRisYIIBN2uni.2',
     'System',
     'Administrator',
     'ADMIN',
