@@ -3,8 +3,12 @@ package com.commerceinsight.user.repository;
 import com.commerceinsight.user.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,4 +37,17 @@ public interface UserRepository extends JpaRepository<User, UUID>,
      * Used during registration to prevent duplicate accounts.
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Find locked users whose account was locked before the given threshold.
+     * Used by the auto-unlock scheduler to release accounts locked > 15 minutes ago.
+     *
+     * <p>Note: Uses updatedAt as the lock timestamp since locked is set and saved
+     * at the same time as the updatedAt field is updated by Spring Data Auditing.
+     *
+     * @param threshold auto-unlock users locked before this instant
+     * @return list of users whose lock should be lifted
+     */
+    @Query("SELECT u FROM User u WHERE u.locked = true AND u.updatedAt < :threshold")
+    List<User> findLockedUsersLockedBefore(@Param("threshold") Instant threshold);
 }

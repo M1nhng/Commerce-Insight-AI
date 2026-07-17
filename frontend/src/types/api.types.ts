@@ -37,6 +37,7 @@ export interface UserResponse {
   role: Role;
   active: boolean;
   locked: boolean;
+  failedAttempts: number;
   lastLoginAt: string | null;
   createdAt: string;
 }

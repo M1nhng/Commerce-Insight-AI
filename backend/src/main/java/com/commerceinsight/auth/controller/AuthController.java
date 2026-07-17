@@ -4,13 +4,14 @@ import com.commerceinsight.auth.dto.request.LoginRequest;
 import com.commerceinsight.auth.dto.request.RefreshTokenRequest;
 import com.commerceinsight.auth.dto.request.RegisterRequest;
 import com.commerceinsight.auth.dto.response.AuthResponse;
-import com.commerceinsight.auth.dto.response.UserResponse;
 import com.commerceinsight.auth.service.AuthService;
 import com.commerceinsight.security.SecurityContextHelper;
 import com.commerceinsight.shared.dto.ApiResponse;
+import com.commerceinsight.user.dto.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ import java.util.UUID;
  *   <li>POST /api/v1/auth/refresh — exchange refresh token for new access token</li>
  *   <li>POST /api/v1/auth/logout — revoke all refresh tokens</li>
  *   <li>GET  /api/v1/auth/me — get current user profile</li>
+ *   <li>GET  /api/v1/auth/verify — verify token validity</li>
  * </ul>
  */
 @Slf4j
@@ -61,8 +63,9 @@ public class AuthController {
     @Operation(summary = "Register a new user account",
                description = "Creates a new user account with STAFF role. Returns JWT tokens.")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
-            @Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
+            @Valid @RequestBody RegisterRequest request,
+            HttpServletRequest httpRequest) {
+        AuthResponse response = authService.register(request, extractIp(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Registration successful"));
     }
@@ -77,8 +80,9 @@ public class AuthController {
     @Operation(summary = "Login with email and password",
                description = "Authenticates user credentials and returns JWT access and refresh tokens.")
     public ResponseEntity<ApiResponse<AuthResponse>> login(
-            @Valid @RequestBody LoginRequest request) {
-        AuthResponse response = authService.login(request);
+            @Valid @RequestBody LoginRequest request,
+            HttpServletRequest httpRequest) {
+        AuthResponse response = authService.login(request, extractIp(httpRequest));
         return ResponseEntity.ok(ApiResponse.success(response, "Login successful"));
     }
 
@@ -109,9 +113,9 @@ public class AuthController {
     @SecurityRequirement(name = "Bearer Authentication")
     @Operation(summary = "Logout current user",
                description = "Revokes all refresh tokens for the authenticated user.")
-    public ResponseEntity<ApiResponse<Void>> logout() {
+    public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest httpRequest) {
         UUID currentUserId = securityContextHelper.getCurrentUserId();
-        authService.logout(currentUserId);
+        authService.logout(currentUserId, extractIp(httpRequest));
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
@@ -130,5 +134,38 @@ public class AuthController {
         UUID currentUserId = securityContextHelper.getCurrentUserId();
         UserResponse user = authService.getCurrentUser(currentUserId);
         return ResponseEntity.ok(ApiResponse.success(user, "User profile retrieved successfully"));
+    }
+
+    /**
+     * GET /api/v1/auth/verify
+     *
+     * <p>Verify that the current JWT access token is valid.
+     * Returns 200 OK with user profile if valid; the JWT filter returns 401 automatically if invalid.
+     * Useful for frontend token introspection on app startup.
+     */
+    @GetMapping("/verify")
+    @PreAuthorize("isAuthenticated()")
+    @SecurityRequirement(name = "Bearer Authentication")
+    @Operation(summary = "Verify token validity",
+               description = "Returns 200 OK with user profile if the Bearer token is valid. " +
+                             "Returns 401 Unauthorized if the token is missing, expired, or invalid.")
+    public ResponseEntity<ApiResponse<UserResponse>> verifyToken() {
+        UUID currentUserId = securityContextHelper.getCurrentUserId();
+        UserResponse user = authService.getCurrentUser(currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(user, "Token is valid"));
+    }
+
+    // ── Internal Helpers ──────────────────────────────────────────────────
+
+    /**
+     * Extract the client IP address from the request.
+     * Handles reverse proxy via X-Forwarded-For header.
+     */
+    private String extractIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isEmpty()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

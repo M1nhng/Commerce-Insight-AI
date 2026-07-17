@@ -1,10 +1,10 @@
 package com.commerceinsight.auth.service;
 
+import com.commerceinsight.admin.service.AuditLogService;
 import com.commerceinsight.auth.domain.RefreshToken;
 import com.commerceinsight.auth.dto.request.LoginRequest;
 import com.commerceinsight.auth.dto.request.RegisterRequest;
 import com.commerceinsight.auth.dto.response.AuthResponse;
-import com.commerceinsight.auth.dto.response.UserResponse;
 import com.commerceinsight.auth.mapper.AuthMapper;
 import com.commerceinsight.exception.BusinessRuleException;
 import com.commerceinsight.exception.DuplicateResourceException;
@@ -13,6 +13,7 @@ import com.commerceinsight.security.JwtTokenUtil;
 import com.commerceinsight.shared.exception.ErrorCode;
 import com.commerceinsight.user.domain.Role;
 import com.commerceinsight.user.domain.User;
+import com.commerceinsight.user.dto.response.UserResponse;
 import com.commerceinsight.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +63,7 @@ public class AuthService {
     private final AuthMapper authMapper;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
+    private final AuditLogService auditLogService;
 
     // ── Register ─────────────────────────────────────────────────────────
 
@@ -77,6 +79,11 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        return register(request, null);
+    }
+
+    @Transactional
+    public AuthResponse register(RegisterRequest request, String ipAddress) {
         if (userRepository.existsByEmail(request.email())) {
             throw DuplicateResourceException.email(request.email());
         }
@@ -94,6 +101,10 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
         log.info("New user registered: {} ({})", savedUser.getEmail(), savedUser.getId());
+
+        auditLogService.log(savedUser.getId(), AuditLogService.ACTION_USER_CREATED,
+                "User", savedUser.getId(), null,
+                String.format("{\"email\":\"%s\"}", savedUser.getEmail()), ipAddress);
 
         return buildAuthResponse(savedUser, true);
     }
@@ -119,6 +130,11 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse login(LoginRequest request) {
+        return login(request, null);
+    }
+
+    @Transactional
+    public AuthResponse login(LoginRequest request, String ipAddress) {
         User user = userRepository.findByEmail(request.email().toLowerCase().trim())
                 .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
@@ -145,11 +161,13 @@ public class AuthService {
             userRepository.save(user);
 
             log.info("User logged in: {} ({})", user.getEmail(), user.getId());
+            auditLogService.log(user.getId(), AuditLogService.ACTION_USER_LOGIN, ipAddress);
             return buildAuthResponse(user, true);
 
         } catch (BadCredentialsException ex) {
             // Track failed attempts and potentially lock account
             handleFailedLogin(user);
+            auditLogService.log(user.getId(), AuditLogService.ACTION_USER_LOGIN_FAILED, ipAddress);
             throw new BadCredentialsException("Invalid email or password");
         }
     }
@@ -202,8 +220,14 @@ public class AuthService {
      */
     @Transactional
     public void logout(UUID userId) {
+        logout(userId, null);
+    }
+
+    @Transactional
+    public void logout(UUID userId, String ipAddress) {
         int revoked = refreshTokenService.revokeAllForUser(userId);
         log.info("User {} logged out. Revoked {} refresh token(s).", userId, revoked);
+        auditLogService.log(userId, AuditLogService.ACTION_USER_LOGOUT, ipAddress);
     }
 
     // ── Current User ──────────────────────────────────────────────────────
