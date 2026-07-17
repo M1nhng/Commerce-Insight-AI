@@ -1,10 +1,10 @@
 package com.commerceinsight.auth;
 
 import com.commerceinsight.auth.domain.RefreshToken;
+import com.commerceinsight.admin.service.AuditLogService;
 import com.commerceinsight.auth.dto.request.LoginRequest;
 import com.commerceinsight.auth.dto.request.RegisterRequest;
 import com.commerceinsight.auth.dto.response.AuthResponse;
-import com.commerceinsight.auth.dto.response.UserResponse;
 import com.commerceinsight.auth.mapper.AuthMapper;
 import com.commerceinsight.auth.service.AuthService;
 import com.commerceinsight.auth.service.RefreshTokenService;
@@ -13,6 +13,7 @@ import com.commerceinsight.exception.DuplicateResourceException;
 import com.commerceinsight.security.JwtTokenUtil;
 import com.commerceinsight.user.domain.Role;
 import com.commerceinsight.user.domain.User;
+import com.commerceinsight.user.dto.response.UserResponse;
 import com.commerceinsight.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,6 +54,7 @@ class AuthServiceTest {
     @Mock private AuthMapper authMapper;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuthenticationManager authenticationManager;
+    @Mock private AuditLogService auditLogService;
 
     @InjectMocks
     private AuthService authService;

@@ -1,5 +1,6 @@
 package com.commerceinsight.auth.dto.response;
 
+import com.commerceinsight.user.dto.response.UserResponse;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Getter;

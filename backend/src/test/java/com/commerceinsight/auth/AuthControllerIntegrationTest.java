@@ -326,4 +326,48 @@ class AuthControllerIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/logout"))
                 .andExpect(status().isUnauthorized());
     }
+
+    // ── Verify Token ──────────────────────────────────────────────────────
+
+    @Test
+    @Order(16)
+    @DisplayName("GET /auth/verify — should return 200 with user profile for valid JWT")
+    void verifyToken_validToken_returns200() throws Exception {
+        // Re-login to get a fresh token
+        LoginRequest loginRequest = new LoginRequest(TEST_EMAIL, TEST_PASSWORD);
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(loginRequest)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        String body = result.getResponse().getContentAsString();
+        ApiResponse<AuthResponse> response = objectMapper.readValue(body, new TypeReference<>() {});
+        String freshToken = response.getData().getAccessToken();
+
+        mockMvc.perform(get("/api/v1/auth/verify")
+                        .header("Authorization", "Bearer " + freshToken))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.email").value(TEST_EMAIL))
+                .andExpect(jsonPath("$.message").value("Token is valid"));
+    }
+
+    @Test
+    @Order(17)
+    @DisplayName("GET /auth/verify — should return 401 with no token")
+    void verifyToken_noToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/verify"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @Order(18)
+    @DisplayName("GET /auth/verify — should return 401 with invalid JWT")
+    void verifyToken_invalidToken_returns401() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/verify")
+                        .header("Authorization", "Bearer this.is.not.a.jwt"))
+                .andExpect(status().isUnauthorized());
+    }
 }

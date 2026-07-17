@@ -69,4 +69,20 @@ export const authService = {
     if (!response.data.data) throw new Error('GetMe failed: empty response')
     return response.data.data
   },
+
+  /**
+   * GET /api/v1/auth/verify
+   * Lightweight token introspection — returns the current user if the token is valid.
+   * Returns null on 401 instead of throwing.
+   */
+  async verifyToken(): Promise<UserResponse | null> {
+    try {
+      const response = await apiClient.get<ApiResponse<UserResponse>>(
+        `${AUTH_BASE}/verify`
+      )
+      return response.data.data ?? null
+    } catch {
+      return null
+    }
+  },
 }
