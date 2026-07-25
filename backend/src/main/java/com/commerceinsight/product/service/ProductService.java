@@ -90,15 +90,16 @@ public class ProductService {
      */
     @Transactional
     public ProductResponse create(CreateProductRequest request) {
-        // Guard: unique SKU
-        if (productRepository.existsBySku(request.sku().trim())) {
+        // Guard: unique SKU (normalize to uppercase consistently)
+        String normalizedSku = request.sku().trim().toUpperCase();
+        if (productRepository.existsBySku(normalizedSku)) {
             throw DuplicateResourceException.sku(request.sku());
         }
 
         Category category = resolveCategory(request.categoryId());
 
         Product product = Product.builder()
-                .sku(request.sku().trim().toUpperCase())
+                .sku(normalizedSku)
                 .name(request.name().trim())
                 .description(request.description())
                 .price(request.price())

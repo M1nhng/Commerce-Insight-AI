@@ -19,6 +19,7 @@ import {
   Users,
   ShoppingCart,
   Warehouse,
+  Building2,
   TrendingUp,
   Bot,
   Download,
@@ -58,9 +59,10 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Products', icon: Package, to: '/products' },
       { label: 'Categories', icon: Tags, to: '/categories' },
-      { label: 'Customers', icon: Users, to: '/customers' },
-      { label: 'Orders', icon: ShoppingCart, to: '/orders' },
-      { label: 'Inventory', icon: Warehouse, to: '/inventory' },
+      { label: 'Customers',   icon: Users,        to: '/customers' },
+      { label: 'Orders',      icon: ShoppingCart, to: '/orders' },
+      { label: 'Inventory',   icon: Warehouse,    to: '/inventory' },
+      { label: 'Warehouses',  icon: Building2,    to: '/warehouses' },
     ],
   },
   {

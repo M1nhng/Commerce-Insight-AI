@@ -108,14 +108,13 @@ export function ProfilePage() {
           }}
         />
 
-        {/* Avatar + name below banner */}
         <div className="px-6 pb-6">
           <div className="flex items-end gap-4 -mt-10 mb-6">
             <div
-              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-heading-3 font-bold text-white ring-4"
+              className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-heading-3 font-bold text-white"
               style={{
                 background: 'linear-gradient(135deg, var(--accent-600) 0%, var(--accent-400) 100%)',
-                ringColor: 'var(--bg-surface)',
+                boxShadow: '0 0 0 4px var(--bg-surface)',
               }}
             >
               {initials}
@@ -271,7 +270,6 @@ function StatusBadge({
         background: ok ? 'var(--success-bg)' : 'var(--error-bg)',
         color: ok ? 'var(--success)' : 'var(--error)',
         border: `1px solid ${ok ? 'var(--success)' : 'var(--error)'}`,
-        borderOpacity: '0.3',
       }}
     >
       <Icon className="h-4 w-4" />

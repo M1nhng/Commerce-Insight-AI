@@ -10,6 +10,8 @@ import { ProfilePage } from '@/features/auth/pages/ProfilePage'
 import { DashboardPlaceholder } from '@/features/dashboard/DashboardPlaceholder'
 import { ProductsPage } from '@/features/products/pages/ProductsPage'
 import { CategoriesPage } from '@/features/products/pages/CategoriesPage'
+import { InventoryPage } from '@/features/inventory/pages/InventoryPage'
+import { WarehousePage } from '@/features/inventory/pages/WarehousePage'
 
 const router = createBrowserRouter([
   // ── Public routes ──────────────────────────────────────────────────────
@@ -47,6 +49,16 @@ const router = createBrowserRouter([
           {
             path: '/categories',
             element: <CategoriesPage />,
+          },
+
+          // ── Sprint 8: Inventory & Warehouses ───────────────────────
+          {
+            path: '/inventory',
+            element: <InventoryPage />,
+          },
+          {
+            path: '/warehouses',
+            element: <WarehousePage />,
           },
 
           // Admin-only routes

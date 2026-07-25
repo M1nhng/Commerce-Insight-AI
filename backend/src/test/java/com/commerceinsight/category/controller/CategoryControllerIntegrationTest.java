@@ -13,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -42,6 +43,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @DisplayName("CategoryController Integration Tests")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Sql(scripts = "/db/cleanup_category_test.sql",
+     executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class CategoryControllerIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
