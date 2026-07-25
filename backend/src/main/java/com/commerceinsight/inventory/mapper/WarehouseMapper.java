@@ -11,45 +11,30 @@ import org.mapstruct.*;
  *
  * <p>Architecture Rule: Never expose JPA entities to controllers.
  * All mappings go through this mapper.
- *
- * <p>Note: toEntity() and updateEntity() use default methods because
- * Lombok @Builder on a class with inherited BaseEntity fields is not
- * visible to MapStruct at annotation processing time.
  */
-@Mapper(componentModel = "spring",
+@Mapper(
+        componentModel = "spring",
+        builder = @Builder(disableBuilder = true),
         unmappedTargetPolicy = ReportingPolicy.IGNORE,
-        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+        nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE
+)
 public interface WarehouseMapper {
 
     /** Maps a Warehouse entity to a WarehouseResponse DTO. */
     WarehouseResponse toResponse(Warehouse warehouse);
 
-    /**
-     * Builds a new Warehouse from a CreateWarehouseRequest.
-     */
-    default Warehouse toEntity(CreateWarehouseRequest request) {
-        if (request == null) return null;
-        return Warehouse.builder()
-                .name(request.name())
-                .code(request.code())
-                .address(request.address())
-                .city(request.city())
-                .country(request.country())
-                .active(true)
-                .build();
-    }
+    /** Builds a new Warehouse entity from a CreateWarehouseRequest. */
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
+    @Mapping(target = "active", constant = "true")
+    Warehouse toEntity(CreateWarehouseRequest request);
 
-    /**
-     * Updates an existing Warehouse entity with values from UpdateWarehouseRequest.
-     * Only modifiable fields are updated; auditing fields are preserved.
-     */
-    default void updateEntity(UpdateWarehouseRequest request, Warehouse warehouse) {
-        if (request == null || warehouse == null) return;
-        warehouse.setName(request.name());
-        warehouse.setCode(request.code());
-        warehouse.setAddress(request.address());
-        warehouse.setCity(request.city());
-        warehouse.setCountry(request.country());
-        warehouse.setActive(request.active());
-    }
+    /** Updates an existing Warehouse entity in-place from an UpdateWarehouseRequest. */
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
+    void updateEntity(UpdateWarehouseRequest request, @MappingTarget Warehouse warehouse);
 }
