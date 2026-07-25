@@ -1,0 +1,36 @@
+# application-test.yml
+# Configuration overrides for @SpringBootTest integration tests.
+# Connects to the local Docker PostgreSQL instance.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/commerce_insight
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 10000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+# Shorter JWT expiry for tests
+app:
+  jwt:
+    secret: CommerceInsightAIDevSecretKeyMustBe256BitsLongForHMACSHA256OK
+    access-token-expiration-ms: 900000   # 15 minutes
+    refresh-token-expiration-days: 1
+
+logging:
+  level:
+    root: WARN
+    com.commerceinsight: INFO
+    org.hibernate.SQL: WARN

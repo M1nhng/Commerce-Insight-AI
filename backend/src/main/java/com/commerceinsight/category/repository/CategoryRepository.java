@@ -51,7 +51,7 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
     /**
      * Paginated flat list with optional name search.
      */
-    @Query("SELECT c FROM Category c WHERE (:search IS NULL OR LOWER(c.name) LIKE LOWER(CONCAT('%', :search, '%')))")
+    @Query("SELECT c FROM Category c WHERE :search IS NULL OR LOWER(c.name) LIKE :search")
     Page<Category> findAllWithSearch(@Param("search") String search, Pageable pageable);
 
     /**

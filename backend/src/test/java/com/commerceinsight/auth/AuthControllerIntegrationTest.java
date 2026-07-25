@@ -13,6 +13,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -45,6 +46,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @DisplayName("Auth Controller Integration Tests")
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Sql(scripts = "/db/cleanup_auth_test.sql",
+     executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class AuthControllerIntegrationTest {
 
     @Autowired private MockMvc mockMvc;
@@ -194,6 +197,9 @@ class AuthControllerIntegrationTest {
     @DisplayName("POST /auth/refresh — should issue new tokens with valid refresh token")
     void refresh_success_returns200() throws Exception {
         assertThat(refreshToken).as("Refresh token must be set from previous test").isNotBlank();
+
+        // Sleep to ensure the refreshed access token has a different 'iat' (issued-at) timestamp
+        Thread.sleep(1005);
 
         RefreshTokenRequest request = new RefreshTokenRequest(refreshToken);
 

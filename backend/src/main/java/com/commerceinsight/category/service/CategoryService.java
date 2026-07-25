@@ -51,10 +51,8 @@ public class CategoryService {
      * @param pageable Spring Data pagination/sort
      */
     public PageResponse<CategoryResponse> findAll(String search, Pageable pageable) {
-        var page = categoryRepository.findAllWithSearch(
-                (search == null || search.isBlank()) ? null : search.trim(),
-                pageable
-        );
+        String searchParam = (search == null || search.isBlank()) ? null : "%" + search.trim().toLowerCase() + "%";
+        var page = categoryRepository.findAllWithSearch(searchParam, pageable);
         var content = page.getContent().stream()
                 .map(c -> {
                     long count = categoryRepository.countActiveProductsByCategoryId(c.getId());

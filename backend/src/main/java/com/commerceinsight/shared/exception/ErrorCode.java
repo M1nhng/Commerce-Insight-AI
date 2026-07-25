@@ -52,6 +52,13 @@ public enum ErrorCode {
 
     // ── Inventory ──────────────────────────────────────────────────────────
     INVENTORY_NOT_FOUND,
+    WAREHOUSE_NOT_FOUND,
+    WAREHOUSE_CODE_ALREADY_EXISTS,
+    WAREHOUSE_HAS_INVENTORY,
+    NEGATIVE_STOCK_NOT_ALLOWED,
+    SAME_WAREHOUSE_TRANSFER,
+    STOCK_ADJUSTMENT_NOT_FOUND,
+    STOCK_ADJUSTMENT_ALREADY_REVIEWED,
 
     // ── Import / Export ────────────────────────────────────────────────────
     IMPORT_VALIDATION_FAILED,
