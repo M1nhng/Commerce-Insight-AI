@@ -13,6 +13,8 @@ import { config } from './config/index.js';
 import { logger } from './utils/logger.js';
 import { CommerceInsightMcpServer } from './server.js';
 import { startHealthCheckServer } from './health.js';
+import { ProductToolsProvider } from './tools/products.tool.js';
+import { CategoryToolsProvider } from './tools/categories.tool.js';
 
 // Setup global error handlers for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -35,12 +37,12 @@ async function main() {
   // 2. Initialize the MCP Server
   const mcpServer = new CommerceInsightMcpServer();
 
-  // Note: Providers (tools, resources) would be registered here:
-  // const registry = mcpServer.getRegistry();
-  // registry.registerProvider(new RevenueToolsProvider());
-  // ...
+  // 3. Register Providers
+  const registry = mcpServer.getRegistry();
+  registry.registerProvider(new ProductToolsProvider());
+  registry.registerProvider(new CategoryToolsProvider());
 
-  // 3. Connect and start
+  // 4. Connect and start
   await mcpServer.start();
 }
 
