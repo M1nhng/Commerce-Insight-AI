@@ -8,6 +8,8 @@ import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
 import { ProfilePage } from '@/features/auth/pages/ProfilePage'
 import { DashboardPlaceholder } from '@/features/dashboard/DashboardPlaceholder'
+import { ProductsPage } from '@/features/products/pages/ProductsPage'
+import { CategoriesPage } from '@/features/products/pages/CategoriesPage'
 
 const router = createBrowserRouter([
   // ── Public routes ──────────────────────────────────────────────────────
@@ -37,6 +39,16 @@ const router = createBrowserRouter([
             element: <ProfilePage />,
           },
 
+          // ── Sprint 6: Product & Category ───────────────────────────
+          {
+            path: '/products',
+            element: <ProductsPage />,
+          },
+          {
+            path: '/categories',
+            element: <CategoriesPage />,
+          },
+
           // Admin-only routes
           {
             path: '/admin',
@@ -46,12 +58,6 @@ const router = createBrowserRouter([
               </RoleGuard>
             ),
           },
-
-          // Future module routes added in subsequent sprints:
-          // { path: '/products',   element: <ProductsPage /> },
-          // { path: '/orders',     element: <OrdersPage /> },
-          // { path: '/analytics',  element: <AnalyticsPage /> },
-          // { path: '/customers',  element: <CustomersPage /> },
         ],
       },
     ],
