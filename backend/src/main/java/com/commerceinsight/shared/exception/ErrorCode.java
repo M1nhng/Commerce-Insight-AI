@@ -44,6 +44,14 @@ public enum ErrorCode {
 
     // ── Customer ───────────────────────────────────────────────────────────
     CUSTOMER_NOT_FOUND,
+    CUSTOMER_CODE_ALREADY_EXISTS,
+    CUSTOMER_EMAIL_ALREADY_EXISTS,
+    CUSTOMER_GROUP_NOT_FOUND,
+    CUSTOMER_GROUP_CODE_ALREADY_EXISTS,
+    CUSTOMER_ADDRESS_NOT_FOUND,
+    CUSTOMER_SEGMENT_NOT_FOUND,
+    CUSTOMER_SEGMENT_CODE_ALREADY_EXISTS,
+    DEFAULT_ADDRESS_CONFLICT,
 
     // ── Order ──────────────────────────────────────────────────────────────
     ORDER_NOT_FOUND,

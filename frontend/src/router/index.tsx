@@ -12,6 +12,11 @@ import { ProductsPage } from '@/features/products/pages/ProductsPage'
 import { CategoriesPage } from '@/features/products/pages/CategoriesPage'
 import { InventoryPage } from '@/features/inventory/pages/InventoryPage'
 import { WarehousePage } from '@/features/inventory/pages/WarehousePage'
+import { CustomersPage }      from '@/features/customers/pages/CustomersPage'
+import { CreateCustomerPage } from '@/features/customers/pages/CreateCustomerPage'
+import { EditCustomerPage }   from '@/features/customers/pages/EditCustomerPage'
+import { CustomerDetailPage } from '@/features/customers/pages/CustomerDetailPage'
+import { CustomerGroupsPage } from '@/features/customers/pages/CustomerGroupsPage'
 
 const router = createBrowserRouter([
   // ── Public routes ──────────────────────────────────────────────────────
@@ -61,7 +66,29 @@ const router = createBrowserRouter([
             element: <WarehousePage />,
           },
 
-          // Admin-only routes
+          // ── Sprint 7: Customer Management ──────────────────────────
+          {
+            path: '/customers',
+            element: <CustomersPage />,
+          },
+          {
+            path: '/customers/new',
+            element: <CreateCustomerPage />,
+          },
+          {
+            path: '/customers/groups',
+            element: <CustomerGroupsPage />,
+          },
+          {
+            path: '/customers/:id',
+            element: <CustomerDetailPage />,
+          },
+          {
+            path: '/customers/:id/edit',
+            element: <EditCustomerPage />,
+          },
+
+          // ── Admin-only routes ──────────────────────────────────────
           {
             path: '/admin',
             element: (

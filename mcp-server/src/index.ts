@@ -13,9 +13,10 @@ import { config } from './config/index.js';
 import { logger } from './utils/logger.js';
 import { CommerceInsightMcpServer } from './server.js';
 import { startHealthCheckServer } from './health.js';
-import { ProductToolsProvider } from './tools/products.tool.js';
+import { ProductToolsProvider }  from './tools/products.tool.js';
 import { CategoryToolsProvider } from './tools/categories.tool.js';
 import { InventoryToolsProvider } from './tools/inventory.tool.js';
+import { CustomerToolsProvider } from './tools/customer.tool.js';
 
 // Setup global error handlers for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -43,6 +44,7 @@ async function main() {
   registry.registerProvider(new ProductToolsProvider());
   registry.registerProvider(new CategoryToolsProvider());
   registry.registerProvider(new InventoryToolsProvider());
+  registry.registerProvider(new CustomerToolsProvider());
 
   // 4. Connect and start
   await mcpServer.start();
