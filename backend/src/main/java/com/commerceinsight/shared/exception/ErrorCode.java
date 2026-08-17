@@ -55,8 +55,15 @@ public enum ErrorCode {
 
     // ── Order ──────────────────────────────────────────────────────────────
     ORDER_NOT_FOUND,
+    ORDER_ITEM_INVALID,
+    ORDER_ALREADY_CANCELLED,
+    ORDER_CANNOT_CANCEL,
+    ORDER_PAYMENT_NOT_FOUND,
     INVALID_STATUS_TRANSITION,
     INSUFFICIENT_STOCK,
+    PRODUCT_INACTIVE,
+    CUSTOMER_INACTIVE,
+    CUSTOMER_BLOCKED,
 
     // ── Inventory ──────────────────────────────────────────────────────────
     INVENTORY_NOT_FOUND,

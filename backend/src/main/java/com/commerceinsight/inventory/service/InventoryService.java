@@ -255,4 +255,113 @@ public class InventoryService {
                         ErrorCode.INVENTORY_NOT_FOUND,
                         "Inventory record with ID '%s' was not found".formatted(id)));
     }
+
+    // ── Order integration (called by OrderInventoryService) ───────────────────
+
+    /**
+     * Reserves {@code quantity} units of the given product for an order.
+     * Uses a PESSIMISTIC WRITE lock to prevent concurrent overselling.
+     *
+     * <p>Strategy: pick the warehouse with the most available stock (greedy).
+     *
+     * @throws BusinessRuleException (INSUFFICIENT_STOCK) if no warehouse has enough available stock
+     */
+    @Transactional
+    public void reserveStock(UUID productId, int quantity, UUID orderId) {
+        List<Inventory> rows = inventoryRepository.findAllByProductIdWithLock(productId);
+        if (rows.isEmpty()) {
+            throw new BusinessRuleException(
+                    ErrorCode.INSUFFICIENT_STOCK,
+                    "No inventory found for product '%s'".formatted(productId));
+        }
+
+        // Greedy: pick the warehouse with the most available stock
+        Inventory best = rows.stream()
+                .max(java.util.Comparator.comparingInt(Inventory::getAvailableQuantity))
+                .orElseThrow();
+
+        if (best.getAvailableQuantity() < quantity) {
+            throw new BusinessRuleException(
+                    ErrorCode.INSUFFICIENT_STOCK,
+                    "Insufficient stock for product '%s'. Available: %d, Requested: %d"
+                            .formatted(productId, best.getAvailableQuantity(), quantity));
+        }
+
+        best.setReservedQuantity(best.getReservedQuantity() + quantity);
+        inventoryRepository.save(best);
+        log.info("Inventory reserved: productId={}, qty={}, orderId={}", productId, quantity, orderId);
+    }
+
+    /**
+     * Releases a reservation previously made by {@link #reserveStock}.
+     * Called on order cancellation. Does NOT decrement physical stock.
+     *
+     * @throws BusinessRuleException (INSUFFICIENT_STOCK) if no inventory found for this product
+     */
+    @Transactional
+    public void releaseReservation(UUID productId, int quantity, UUID orderId) {
+        List<Inventory> rows = inventoryRepository.findAllByProductIdWithLock(productId);
+        if (rows.isEmpty()) {
+            log.warn("Cannot release reservation — no inventory found for product '{}'. orderId={}",
+                    productId, orderId);
+            return;
+        }
+
+        // Find the row that has enough reserved quantity to release from
+        Inventory target = rows.stream()
+                .filter(i -> i.getReservedQuantity() >= quantity)
+                .findFirst()
+                .orElse(rows.get(0)); // fallback — release whatever we can
+
+        int newReserved = Math.max(0, target.getReservedQuantity() - quantity);
+        target.setReservedQuantity(newReserved);
+        inventoryRepository.save(target);
+        log.info("Inventory reservation released: productId={}, qty={}, orderId={}", productId, quantity, orderId);
+    }
+
+    /**
+     * Commits a physical stock deduction when an order is shipped (SALE).
+     * Decrements both {@code quantity} and {@code reservedQuantity}.
+     * Records a {@code SALE} InventoryTransaction for the audit trail.
+     *
+     * @throws BusinessRuleException (INSUFFICIENT_STOCK) if physical stock would go negative
+     */
+    @Transactional
+    public void commitSale(UUID productId, int quantity, UUID orderId, User user) {
+        List<Inventory> rows = inventoryRepository.findAllByProductIdWithLock(productId);
+        if (rows.isEmpty()) {
+            throw new BusinessRuleException(
+                    ErrorCode.INSUFFICIENT_STOCK,
+                    "No inventory to commit for product '%s'".formatted(productId));
+        }
+
+        // Find row with enough reserved stock
+        Inventory target = rows.stream()
+                .filter(i -> i.getReservedQuantity() >= quantity)
+                .findFirst()
+                .orElseGet(() -> rows.stream()
+                        .max(java.util.Comparator.comparingInt(Inventory::getReservedQuantity))
+                        .orElse(rows.get(0)));
+
+        int qtyBefore = target.getQuantity();
+        int qtyAfter = qtyBefore - quantity;
+
+        if (qtyAfter < 0) {
+            throw new BusinessRuleException(
+                    ErrorCode.INSUFFICIENT_STOCK,
+                    "Cannot commit sale: physical stock would go negative for product '%s'".formatted(productId));
+        }
+
+        int newReserved = Math.max(0, target.getReservedQuantity() - quantity);
+        target.setQuantity(qtyAfter);
+        target.setReservedQuantity(newReserved);
+        inventoryRepository.save(target);
+
+        transactionService.record(target, TransactionType.SALE,
+                -quantity, qtyBefore, qtyAfter, user, orderId,
+                "Sale committed for order " + orderId);
+
+        log.info("Inventory sale committed: productId={}, qty={}, orderId={}", productId, quantity, orderId);
+    }
 }
+

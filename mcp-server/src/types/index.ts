@@ -76,3 +76,156 @@ export interface CustomerGroup {
   updatedAt:   string;
 }
 
+// ── Order domain types ────────────────────────────────────────────────────────
+
+export type OrderStatus =
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'PROCESSING'
+  | 'SHIPPED'
+  | 'DELIVERED'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'REFUNDED';
+
+export type PaymentStatus  = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+export type PaymentMethod  = 'CASH' | 'BANK_TRANSFER' | 'CARD' | 'OTHER';
+export type OrderAddressType = 'SHIPPING' | 'BILLING';
+
+/** Lightweight list-view row — mirrors OrderSummaryResponse */
+export interface OrderSummary {
+  id:            string;
+  orderNumber:   string;
+  customerId:    string | null;
+  customerName:  string;
+  status:        OrderStatus;
+  paymentStatus: PaymentStatus;
+  total:         number;
+  currency:      string;
+  itemCount:     number;
+  createdAt:     string;
+  updatedAt:     string;
+}
+
+/** Line item — mirrors OrderItemResponse */
+export interface OrderItem {
+  id:                  string;
+  productId:           string | null;
+  skuSnapshot:         string;
+  productNameSnapshot: string;
+  unitPrice:           number;
+  quantity:            number;
+  discountAmount:      number;
+  subtotal:            number;
+}
+
+/** Address snapshot — mirrors OrderAddressResponse */
+export interface OrderAddress {
+  id:            string;
+  type:          OrderAddressType;
+  recipientName: string;
+  phone:         string | null;
+  addressLine:   string;
+  ward:          string | null;
+  district:      string | null;
+  province:      string | null;
+  country:       string;
+  createdAt:     string;
+}
+
+/** Payment record — mirrors PaymentResponse */
+export interface Payment {
+  id:        string;
+  method:    PaymentMethod;
+  status:    PaymentStatus;
+  amount:    number;
+  currency:  string;
+  reference: string | null;
+  paidAt:    string | null;
+  notes:     string | null;
+}
+
+/** One entry in the status audit trail — mirrors OrderStatusHistoryResponse */
+export interface OrderStatusHistory {
+  id:            string;
+  fromStatus:    OrderStatus | null;
+  toStatus:      OrderStatus;
+  changedById:   string | null;
+  changedByName: string | null;
+  reason:        string | null;
+  createdAt:     string;
+}
+
+/** Full order detail — mirrors OrderResponse */
+export interface OrderDetail extends OrderSummary {
+  customerCode:    string | null;
+  subtotal:        number;
+  discount:        number;
+  shippingFee:     number;
+  tax:             number;
+  notes:           string | null;
+  shippedAt:       string | null;
+  deliveredAt:     string | null;
+  cancelledAt:     string | null;
+  completedAt:     string | null;
+  items:           OrderItem[];
+  shippingAddress: OrderAddress | null;
+  billingAddress:  OrderAddress | null;
+  payment:         Payment | null;
+  statusHistory:   OrderStatusHistory[];
+}
+
+/** Single line item in a CreateOrderRequest */
+export interface CreateOrderItemRequest {
+  productId:      string;   // UUID
+  quantity:       number;   // 1..10,000
+  discountAmount: number | null;  // optional, defaults to 0 server-side
+}
+
+/** Address snapshot in a CreateOrderRequest */
+export interface CreateOrderAddressRequest {
+  type:          OrderAddressType;
+  recipientName: string;
+  phone:         string | null;
+  addressLine:   string;
+  ward:          string | null;
+  district:      string | null;
+  province:      string | null;
+  country:       string | null;
+}
+
+/** Full create order payload — mirrors CreateOrderRequest */
+export interface CreateOrderRequest {
+  customerId:      string;        // UUID — must be ACTIVE
+  items:           CreateOrderItemRequest[];
+  shippingAddress: CreateOrderAddressRequest | null;
+  billingAddress:  CreateOrderAddressRequest | null;
+  paymentMethod:   PaymentMethod;
+  shippingFee:     number | null; // optional, defaults to 0
+  discount:        number | null; // order-level discount, defaults to 0
+  tax:             number | null; // tax amount, defaults to 0
+  currency:        string | null; // ISO 4217, defaults to VND
+  notes:           string | null;
+}
+
+/** Filter params for GET /orders */
+export interface OrderSearchParams {
+  keyword?:       string;
+  customerId?:    string;
+  status?:        OrderStatus;
+  paymentStatus?: PaymentStatus;
+  dateFrom?:      string; // YYYY-MM-DD
+  dateTo?:        string; // YYYY-MM-DD
+  page?:          number;
+  size?:          number;
+  sort?:          string;
+}
+
+/** Paginated response wrapping OrderSummary */
+export interface OrderSearchResponse {
+  totalElements: number;
+  totalPages:    number;
+  currentPage:   number;
+  pageSize:      number;
+  orders:        OrderSummary[];
+}
