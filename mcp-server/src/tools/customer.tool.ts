@@ -21,77 +21,9 @@
 
 import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { AxiosInstance, AxiosError } from 'axios';
+import { AxiosInstance } from 'axios';
 import { McpProvider } from '../providers/provider.interface.js';
-
-// ── Shared error formatter ────────────────────────────────────────────────────
-
-/**
- * Converts an Axios error (or unknown error) into a human-readable MCP error
- * response that an LLM can communicate to the user.
- *
- * Never exposes stack traces, DB connection info, or internal system details.
- */
-function toMcpError(toolName: string, error: unknown): { content: { type: 'text'; text: string }[]; isError: true } {
-  if (error instanceof AxiosError) {
-    const status  = error.response?.status;
-    const apiMsg  = (error.response?.data as any)?.error?.message
-                 ?? (error.response?.data as any)?.message
-                 ?? error.message;
-
-    if (!error.response) {
-      return {
-        content: [{ type: 'text', text: `Error [${toolName}]: Unable to reach the Commerce Insight backend. Please ensure the API server is running.` }],
-        isError: true,
-      };
-    }
-
-    if (status === 400) {
-      return {
-        content: [{ type: 'text', text: `Error [${toolName}]: Invalid request — ${apiMsg}` }],
-        isError: true,
-      };
-    }
-
-    if (status === 401 || status === 403) {
-      return {
-        content: [{ type: 'text', text: `Error [${toolName}]: Access denied. The MCP service key may be invalid or expired.` }],
-        isError: true,
-      };
-    }
-
-    if (status === 404) {
-      return {
-        content: [{ type: 'text', text: `Error [${toolName}]: The requested resource was not found. ${apiMsg}` }],
-        isError: true,
-      };
-    }
-
-    if (status === 429) {
-      return {
-        content: [{ type: 'text', text: `Error [${toolName}]: Rate limit exceeded. Please wait a moment before retrying.` }],
-        isError: true,
-      };
-    }
-
-    if (status && status >= 500) {
-      return {
-        content: [{ type: 'text', text: `Error [${toolName}]: The Commerce Insight backend encountered an internal error (HTTP ${status}). Please try again shortly.` }],
-        isError: true,
-      };
-    }
-
-    return {
-      content: [{ type: 'text', text: `Error [${toolName}]: Unexpected API error (HTTP ${status ?? 'unknown'}). ${apiMsg}` }],
-      isError: true,
-    };
-  }
-
-  return {
-    content: [{ type: 'text', text: `Error [${toolName}]: An unexpected error occurred. Please try again.` }],
-    isError: true,
-  };
-}
+import { toMcpToolError } from '../utils/error.handler.js';
 
 // ── CustomerToolsProvider ─────────────────────────────────────────────────────
 
@@ -146,7 +78,7 @@ export class CustomerToolsProvider implements McpProvider {
             content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }],
           };
         } catch (error) {
-          return toMcpError('customer_lookup', error);
+          return toMcpToolError('customer_lookup', error);
         }
       }
     );
@@ -239,7 +171,7 @@ export class CustomerToolsProvider implements McpProvider {
             content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
           };
         } catch (error) {
-          return toMcpError('customer_search', error);
+          return toMcpToolError('customer_search', error);
         }
       }
     );
@@ -305,7 +237,7 @@ export class CustomerToolsProvider implements McpProvider {
             content: [{ type: 'text', text: JSON.stringify(profile, null, 2) }],
           };
         } catch (error) {
-          return toMcpError('customer_profile', error);
+          return toMcpToolError('customer_profile', error);
         }
       }
     );
@@ -351,7 +283,7 @@ export class CustomerToolsProvider implements McpProvider {
             content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
           };
         } catch (error) {
-          return toMcpError('customer_group_summary', error);
+          return toMcpToolError('customer_group_summary', error);
         }
       }
     );

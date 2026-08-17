@@ -17,6 +17,9 @@ import { CreateCustomerPage } from '@/features/customers/pages/CreateCustomerPag
 import { EditCustomerPage }   from '@/features/customers/pages/EditCustomerPage'
 import { CustomerDetailPage } from '@/features/customers/pages/CustomerDetailPage'
 import { CustomerGroupsPage } from '@/features/customers/pages/CustomerGroupsPage'
+import { OrdersPage }         from '@/features/orders/pages/OrdersPage'
+import { CreateOrderPage }    from '@/features/orders/pages/CreateOrderPage'
+import { OrderDetailPage }    from '@/features/orders/pages/OrderDetailPage'
 
 const router = createBrowserRouter([
   // ── Public routes ──────────────────────────────────────────────────────
@@ -86,6 +89,20 @@ const router = createBrowserRouter([
           {
             path: '/customers/:id/edit',
             element: <EditCustomerPage />,
+          },
+
+          // ── Sprint 8: Order Management ─────────────────────────────
+          {
+            path: '/orders',
+            element: <OrdersPage />,
+          },
+          {
+            path: '/orders/new',
+            element: <CreateOrderPage />,
+          },
+          {
+            path: '/orders/:id',
+            element: <OrderDetailPage />,
           },
 
           // ── Admin-only routes ──────────────────────────────────────

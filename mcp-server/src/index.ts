@@ -17,6 +17,7 @@ import { ProductToolsProvider }  from './tools/products.tool.js';
 import { CategoryToolsProvider } from './tools/categories.tool.js';
 import { InventoryToolsProvider } from './tools/inventory.tool.js';
 import { CustomerToolsProvider } from './tools/customer.tool.js';
+import { OrderToolsProvider }    from './tools/orders.tool.js';
 
 // Setup global error handlers for uncaught exceptions
 process.on('uncaughtException', (error) => {
@@ -45,6 +46,7 @@ async function main() {
   registry.registerProvider(new CategoryToolsProvider());
   registry.registerProvider(new InventoryToolsProvider());
   registry.registerProvider(new CustomerToolsProvider());
+  registry.registerProvider(new OrderToolsProvider());
 
   // 4. Connect and start
   await mcpServer.start();

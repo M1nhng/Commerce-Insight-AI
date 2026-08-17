@@ -1,8 +1,10 @@
 package com.commerceinsight.inventory.repository;
 
 import com.commerceinsight.inventory.domain.Inventory;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -56,4 +58,13 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID>,
             ORDER BY i.quantity ASC
             """)
     List<Inventory> findLowStockItemsByWarehouse(@Param("warehouseId") UUID warehouseId);
+
+    /**
+     * Find all inventory rows for a product with a PESSIMISTIC WRITE lock.
+     * Used by {@code OrderInventoryService} to prevent concurrent overselling.
+     * Acquires SELECT FOR UPDATE on each matching row within the calling transaction.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM Inventory i WHERE i.product.id = :productId")
+    List<Inventory> findAllByProductIdWithLock(@Param("productId") UUID productId);
 }
