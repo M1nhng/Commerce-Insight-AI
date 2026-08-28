@@ -266,7 +266,7 @@ export function OrderDetailPage() {
         title={
           pendingAction?.type === 'cancel'
             ? 'Cancel Order?'
-            : `${ORDER_ACTION_LABELS[(pendingAction as any)?.status] ?? 'Update Status'}?`
+            : `${ORDER_ACTION_LABELS[((pendingAction as any)?.status) as OrderStatus] ?? 'Update Status'}?`
         }
         description={
           pendingAction?.type === 'cancel'

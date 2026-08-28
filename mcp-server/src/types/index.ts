@@ -229,3 +229,89 @@ export interface OrderSearchResponse {
   pageSize:      number;
   orders:        OrderSummary[];
 }
+
+// ── Analytics domain types ────────────────────────────────────────────────────
+// These types mirror the Spring Boot analytics DTO contracts exactly.
+// Source: src/main/java/com/commerceinsight/analytics/dto/
+
+export type RevenueGroupBy = 'DAY' | 'WEEK' | 'MONTH';
+
+/** Mirrors OverviewResponse — high-level KPI snapshot */
+export interface AnalyticsOverview {
+  totalRevenue:       number;
+  totalOrders:        number;
+  totalCustomers:     number;
+  totalProductsSold:  number;
+  averageOrderValue:  number;
+  cancelledOrders:    number;
+  cancellationRate:   number;
+  currency:           string;
+  dateFrom:           string | null;
+  dateTo:             string | null;
+}
+
+/** Mirrors RevenuePeriodResponse — one time-series data point */
+export interface RevenuePeriod {
+  period:  string;   // "2026-08-01" | "2026-W32" | "2026-08"
+  revenue: number;
+  orders:  number;
+}
+
+/** Mirrors RevenueResponse — complete revenue time series */
+export interface RevenueAnalytics {
+  groupBy:  string;
+  currency: string;
+  dateFrom: string | null;
+  dateTo:   string | null;
+  data:     RevenuePeriod[];
+}
+
+/** Mirrors OrderAnalyticsResponse — per-status breakdown + rates */
+export interface OrderAnalytics {
+  totalOrders:       number;
+  pendingOrders:     number;
+  confirmedOrders:   number;
+  processingOrders:  number;
+  shippedOrders:     number;
+  deliveredOrders:   number;
+  completedOrders:   number;
+  cancelledOrders:   number;
+  completionRate:    number;
+  cancellationRate:  number;
+  dateFrom:          string | null;
+  dateTo:            string | null;
+}
+
+/** Mirrors TopProductEntry — one ranked product */
+export interface TopProductAnalytics {
+  productId:    string | null;  // null when product has been deleted
+  sku:          string;
+  productName:  string;
+  quantitySold: number;
+  revenue:      number;
+}
+
+/** Mirrors CustomerAnalyticsResponse — engagement metrics */
+export interface CustomerAnalytics {
+  uniqueCustomers:          number;
+  newCustomers:             number;
+  repeatCustomers:          number;
+  averageOrdersPerCustomer: number;
+  dateFrom:                 string | null;
+  dateTo:                   string | null;
+}
+
+/** Mirrors PaymentMethodStats — aggregated stats for one payment method */
+export interface PaymentMethodAnalytics {
+  orders: number;
+  amount: number;
+}
+
+/** Mirrors PaymentAnalyticsResponse — breakdown keyed by payment method */
+export interface PaymentAnalytics {
+  currency:  string;
+  breakdown: Record<string, PaymentMethodAnalytics>;  // keys: CASH | BANK_TRANSFER | CARD | OTHER
+  dateFrom:  string | null;
+  dateTo:    string | null;
+}
+

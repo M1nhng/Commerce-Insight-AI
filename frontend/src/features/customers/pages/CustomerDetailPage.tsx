@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { CardSkeleton } from '@/components/common/TableSkeleton'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
