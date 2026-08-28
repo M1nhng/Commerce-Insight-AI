@@ -20,6 +20,7 @@ import { CustomerGroupsPage } from '@/features/customers/pages/CustomerGroupsPag
 import { OrdersPage }         from '@/features/orders/pages/OrdersPage'
 import { CreateOrderPage }    from '@/features/orders/pages/CreateOrderPage'
 import { OrderDetailPage }    from '@/features/orders/pages/OrderDetailPage'
+import { AnalyticsPage }      from '@/features/analytics'
 
 const router = createBrowserRouter([
   // ── Public routes ──────────────────────────────────────────────────────
@@ -103,6 +104,12 @@ const router = createBrowserRouter([
           {
             path: '/orders/:id',
             element: <OrderDetailPage />,
+          },
+
+          // ── Sprint 9B: Analytics Dashboard ─────────────────────────
+          {
+            path: '/analytics',
+            element: <AnalyticsPage />,
           },
 
           // ── Admin-only routes ──────────────────────────────────────
