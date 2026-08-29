@@ -35,6 +35,6 @@ export class ProviderRegistry {
       }
     }
 
-    logger.info('All providers initialized successfully.');
+    logger.info(`${this.providers.length} providers initialized successfully.`);
   }
 }

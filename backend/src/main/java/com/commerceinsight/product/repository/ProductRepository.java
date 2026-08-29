@@ -39,4 +39,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID>,
      */
     @Query("SELECT COUNT(p) FROM Product p WHERE p.category.id = :categoryId")
     long countByCategoryId(@Param("categoryId") UUID categoryId);
+
+    /** Find by SKU (normalized to uppercase). */
+    java.util.Optional<Product> findBySku(String sku);
 }

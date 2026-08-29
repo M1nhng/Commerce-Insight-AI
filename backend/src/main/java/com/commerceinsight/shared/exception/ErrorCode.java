@@ -75,10 +75,14 @@ public enum ErrorCode {
     STOCK_ADJUSTMENT_NOT_FOUND,
     STOCK_ADJUSTMENT_ALREADY_REVIEWED,
 
-    // ── Import / Export ────────────────────────────────────────────────────
+    // ── Import / Export ────────────────────────────────────────────────────────
     IMPORT_VALIDATION_FAILED,
     IMPORT_FILE_TOO_LARGE,
     IMPORT_UNSUPPORTED_FORMAT,
+    IMPORT_EMPTY_FILE,
+    IMPORT_INVALID_HEADER,
+    IMPORT_ROW_LIMIT_EXCEEDED,
+    IMPORT_JOB_NOT_FOUND,
     EXPORT_FAILED,
 
     // ── AI ─────────────────────────────────────────────────────────────────

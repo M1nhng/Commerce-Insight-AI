@@ -31,4 +31,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID>,
 
     /** Find by customer code. */
     Optional<Customer> findByCustomerCode(String customerCode);
+
+    /** Find by email address (for import resolution by email). */
+    Optional<Customer> findByEmail(String email);
 }

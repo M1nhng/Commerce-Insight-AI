@@ -315,3 +315,101 @@ export interface PaymentAnalytics {
   dateTo:    string | null;
 }
 
+// ── Data Import domain types (Sprint 10C) ────────────────────────────────────
+// Mirror the Spring Boot dataimport DTO contracts exactly.
+// Source: backend/src/main/java/com/commerceinsight/dataimport/
+//   - domain/ImportType.java, domain/ImportFileType.java, domain/ImportJobStatus.java
+//   - dto/response/ImportJobResponse.java
+//   - dto/response/ImportJobSummaryResponse.java
+//   - dto/response/ImportErrorResponse.java
+// The MCP server NEVER parses files or runs import logic — these types only
+// describe what the backend REST API already returns.
+
+/** Mirrors the ImportType enum — the domain being imported. */
+export type ImportType = 'PRODUCT' | 'CUSTOMER' | 'ORDER';
+
+/** Mirrors the ImportFileType enum — supported upload formats. */
+export type ImportFileType = 'CSV' | 'XLSX';
+
+/** Mirrors the ImportJobStatus enum — import job lifecycle states. */
+export type ImportJobStatus =
+  | 'UPLOADED'
+  | 'VALIDATING'
+  | 'IMPORTING'
+  | 'COMPLETED'
+  | 'PARTIAL_SUCCESS'
+  | 'FAILED';
+
+/** Mirrors ImportJobSummaryResponse — condensed row for GET /import/jobs. */
+export interface ImportJobSummary {
+  id:             string;
+  fileName:       string;
+  fileType:       ImportFileType;
+  importType:     ImportType;
+  status:         ImportJobStatus;
+  totalRows:      number;
+  successfulRows: number;
+  failedRows:     number;
+  createdAt:      string;
+}
+
+/** Mirrors ImportJobResponse — full detail from GET /import/jobs/{id}. */
+export interface ImportJobDetail {
+  id:             string;
+  fileName:       string;
+  fileType:       ImportFileType;
+  importType:     ImportType;
+  status:         ImportJobStatus;
+  totalRows:      number;
+  successfulRows: number;
+  failedRows:     number;
+  startedAt:      string | null;
+  completedAt:    string | null;
+  createdAt:      string;
+  createdByEmail: string | null;
+}
+
+/** Mirrors ImportErrorResponse — one row-level import error. */
+export interface ImportError {
+  id:           string;
+  rowNumber:    number;
+  fieldName:    string | null;
+  rawValue:     string | null;
+  errorCode:    string;
+  errorMessage: string;
+}
+
+/** Query params accepted by GET /import/jobs. */
+export interface ImportJobSearchParams {
+  importType?: ImportType;
+  status?:     ImportJobStatus;
+  page?:       number;
+  size?:       number;
+}
+
+/** Normalised paginated response returned by the import_job_search tool. */
+export interface ImportJobSearchResponse {
+  totalElements: number;
+  totalPages:    number;
+  currentPage:   number;
+  pageSize:      number;
+  jobs:          ImportJobSummary[];
+}
+
+/** Query params accepted by GET /import/jobs/{id}/errors. */
+export interface ImportErrorSearchParams {
+  jobId: string;
+  page?: number;
+  size?: number;
+}
+
+/** Normalised paginated response returned by the import_job_errors tool. */
+export interface ImportErrorSearchResponse {
+  jobId:         string;
+  totalElements: number;
+  totalPages:    number;
+  currentPage:   number;
+  pageSize:      number;
+  errors:        ImportError[];
+}
+

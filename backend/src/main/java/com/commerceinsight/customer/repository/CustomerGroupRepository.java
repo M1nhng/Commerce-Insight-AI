@@ -21,4 +21,7 @@ public interface CustomerGroupRepository extends JpaRepository<CustomerGroup, UU
 
     /** Find a group by its unique code. */
     Optional<CustomerGroup> findByCode(String code);
+
+    /** Find a group by its display name (case-insensitive). Used by import service. */
+    Optional<CustomerGroup> findByNameIgnoreCase(String name);
 }
