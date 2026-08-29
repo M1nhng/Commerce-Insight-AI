@@ -84,6 +84,9 @@ public enum ErrorCode {
     IMPORT_ROW_LIMIT_EXCEEDED,
     IMPORT_JOB_NOT_FOUND,
     EXPORT_FAILED,
+    EXPORT_INVALID_FORMAT,
+    EXPORT_INVALID_DATE_RANGE,
+    EXPORT_ROW_LIMIT_EXCEEDED,
 
     // ── AI ─────────────────────────────────────────────────────────────────
     AI_PROVIDER_UNAVAILABLE,

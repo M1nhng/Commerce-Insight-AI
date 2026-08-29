@@ -117,6 +117,10 @@ app:
     max-file-size-mb: ${IMPORT_MAX_FILE_SIZE_MB:10}
     max-rows: ${IMPORT_MAX_ROWS:5000}
 
+  # Report Export (Sprint 11A)
+  export:
+    max-rows: ${EXPORT_MAX_ROWS:10000}
+
   # OpenAPI
   openapi:
     title: Commerce Insight AI API

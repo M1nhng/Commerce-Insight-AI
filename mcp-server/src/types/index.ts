@@ -413,3 +413,104 @@ export interface ImportErrorSearchResponse {
   errors:        ImportError[];
 }
 
+// ── Export domain types (Sprint 11C) ────────────────────────────────────────
+// Describe the Sprint 11A binary export endpoints (GET /api/v1/export/**).
+// These endpoints return XLSX / PDF files — NOT the ApiResponse envelope — so
+// these types describe MCP *metadata* and *request-preview* payloads only.
+// The MCP server NEVER downloads or relays the generated binary (see the
+// export.tool.ts header for the architecture decision).
+//
+// Source of truth: backend ExportController.java + frontend src/features/export/.
+
+/** Output file format — backend accepts `format=xlsx|pdf` (case-insensitive). */
+export type ExportFormat = 'XLSX' | 'PDF';
+
+/** The eight exportable reports. Do NOT confuse with the import ImportType. */
+export type ExportReportType =
+  | 'PRODUCTS'
+  | 'CUSTOMERS'
+  | 'ORDERS'
+  | 'REVENUE'
+  | 'ORDER_ANALYTICS'
+  | 'TOP_PRODUCTS'
+  | 'CUSTOMER_ANALYTICS'
+  | 'PAYMENT_ANALYTICS';
+
+/** Static metadata for one export report (export_report_info output). */
+export interface ExportReportInfo {
+  reportType:       ExportReportType;
+  formats:          ExportFormat[];
+  description:      string;
+  supportedFilters: string[];
+  endpoint:         string;
+  source:           'static-metadata';
+}
+
+/** GET /export/products query params. */
+export interface ProductExportParams {
+  search?:     string;
+  categoryId?: string;   // UUID
+  active?:     boolean;
+  priceMin?:   number;   // >= 0
+  priceMax?:   number;   // >= 0, and >= priceMin
+}
+
+/** GET /export/customers query params. */
+export interface CustomerExportParams {
+  keyword?:   string;
+  status?:    CustomerStatus;
+  groupId?:   string;   // UUID
+  startDate?: string;   // ISO 8601 datetime
+  endDate?:   string;   // ISO 8601 datetime
+}
+
+/** GET /export/orders query params. */
+export interface OrderExportParams {
+  keyword?:       string;
+  customerId?:    string;   // UUID
+  status?:        OrderStatus;
+  paymentStatus?: PaymentStatus;
+  dateFrom?:      string;   // ISO 8601 datetime
+  dateTo?:        string;   // ISO 8601 datetime
+}
+
+/** Shared date-range params for the analytics exports. */
+export interface DateRangeExportParams {
+  dateFrom?: string;   // ISO 8601 datetime
+  dateTo?:   string;   // ISO 8601 datetime
+}
+
+/** GET /export/analytics/revenue query params. */
+export interface RevenueExportParams extends DateRangeExportParams {
+  groupBy?: RevenueGroupBy;   // DAY | WEEK | MONTH, backend default DAY
+}
+
+/** GET /export/analytics/products query params. */
+export interface TopProductsExportParams extends DateRangeExportParams {
+  limit?: number;   // integer 1..100, backend default 10
+}
+
+/** order / customer / payment analytics exports take only a date range. */
+export type AnalyticsExportParams = DateRangeExportParams;
+
+/** Any one report's filter object. */
+export type ExportFilters =
+  | ProductExportParams
+  | CustomerExportParams
+  | OrderExportParams
+  | RevenueExportParams
+  | TopProductsExportParams
+  | AnalyticsExportParams;
+
+/** export_request_preview output — the request that WOULD be sent, no file made. */
+export interface ExportRequestPreview {
+  reportType:  ExportReportType;
+  format:      ExportFormat;
+  filters:     Record<string, unknown>;
+  queryParams: Record<string, unknown>;
+  endpoint:    string;
+  ready:       true;
+  source:      'validation-only';
+  note:        string;
+}
+
