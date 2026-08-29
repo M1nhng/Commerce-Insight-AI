@@ -65,4 +65,7 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
      * Check if any category has the given parent (prevents orphan parent deletion).
      */
     boolean existsByParentId(UUID parentId);
+
+    /** Find category by exact name (case-insensitive). Used by import service. */
+    java.util.Optional<Category> findByNameIgnoreCase(String name);
 }

@@ -112,6 +112,11 @@ app:
   mcp:
     api-key: ${MCP_API_KEY:mcp-dev-secret-key-change-in-production}
 
+  # Data Import
+  import:
+    max-file-size-mb: ${IMPORT_MAX_FILE_SIZE_MB:10}
+    max-rows: ${IMPORT_MAX_ROWS:5000}
+
   # OpenAPI
   openapi:
     title: Commerce Insight AI API

@@ -21,6 +21,7 @@ import { OrdersPage }         from '@/features/orders/pages/OrdersPage'
 import { CreateOrderPage }    from '@/features/orders/pages/CreateOrderPage'
 import { OrderDetailPage }    from '@/features/orders/pages/OrderDetailPage'
 import { AnalyticsPage }      from '@/features/analytics'
+import { ImportPage, ImportJobsPage, ImportJobDetailPage } from '@/features/import'
 
 const router = createBrowserRouter([
   // ── Public routes ──────────────────────────────────────────────────────
@@ -110,6 +111,20 @@ const router = createBrowserRouter([
           {
             path: '/analytics',
             element: <AnalyticsPage />,
+          },
+
+          // ── Sprint 10B: Data Import ────────────────────────────────
+          {
+            path: '/import',
+            element: <ImportPage />,
+          },
+          {
+            path: '/import/jobs',
+            element: <ImportJobsPage />,
+          },
+          {
+            path: '/import/jobs/:id',
+            element: <ImportJobDetailPage />,
           },
 
           // ── Admin-only routes ──────────────────────────────────────

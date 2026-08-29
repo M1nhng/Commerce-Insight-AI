@@ -75,8 +75,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     section: 'DATA',
     items: [
-      { label: 'Import', icon: Download, to: '/import' },
-      { label: 'Export', icon: Upload, to: '/export' },
+      { label: 'Import Data',    icon: Download, to: '/import' },
+      { label: 'Import History', icon: Upload,   to: '/import/jobs' },
     ],
   },
   {
