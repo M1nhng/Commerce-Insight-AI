@@ -24,6 +24,7 @@ import {
   Bot,
   Download,
   Upload,
+  FileDown,
   Settings,
   Shield,
   ChevronLeft,
@@ -75,8 +76,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     section: 'DATA',
     items: [
-      { label: 'Import Data',    icon: Download, to: '/import' },
-      { label: 'Import History', icon: Upload,   to: '/import/jobs' },
+      { label: 'Import Data',     icon: Download, to: '/import' },
+      { label: 'Import History',  icon: Upload,   to: '/import/jobs' },
+      { label: 'Export Reports',  icon: FileDown, to: '/export' },
     ],
   },
   {

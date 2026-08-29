@@ -1,5 +1,6 @@
 package com.commerceinsight.exception;
 
+import com.commerceinsight.export.exception.ExportException;
 import com.commerceinsight.shared.dto.ApiResponse;
 import com.commerceinsight.shared.dto.ErrorResponse;
 import com.commerceinsight.shared.exception.ErrorCode;
@@ -72,6 +73,24 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(ApiResponse.error(ErrorResponse.of(
                         ErrorCode.IMPORT_VALIDATION_FAILED.name(), ex.getMessage())));
+    }
+
+    /**
+     * Export module errors (Sprint 11A). The exception carries both the
+     * {@link ErrorCode} and the {@link HttpStatus} to return
+     * (400 bad format / bad date range, 422 row-limit exceeded, 500 generation
+     * failure). Messages are pre-sanitised; no cause detail is exposed.
+     */
+    @ExceptionHandler(ExportException.class)
+    public ResponseEntity<ApiResponse<Void>> handleExport(
+            ExportException ex, HttpServletRequest request) {
+        if (ex.getStatus().is5xxServerError()) {
+            log.error("Export generation failed at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        } else {
+            log.warn("Export request rejected at {}: {}", request.getRequestURI(), ex.getMessage());
+        }
+        return ResponseEntity.status(ex.getStatus())
+                .body(ApiResponse.error(ErrorResponse.of(ex.getErrorCode().name(), ex.getMessage())));
     }
 
     // ── Validation ───────────────────────────────────────────────────────

@@ -9,19 +9,11 @@
  */
 import { useCallback, useRef, useState } from 'react'
 import { CloudUpload, FileSpreadsheet, X, AlertCircle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const MAX_SIZE_MB = 10
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 const ALLOWED_EXTENSIONS = ['csv', 'xlsx']
-const ALLOWED_MIME = [
-  'text/csv',
-  'text/plain',
-  'application/csv',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/octet-stream',
-]
 
 function validateFile(file: File): string | null {
   if (file.size === 0) return 'File is empty.'
