@@ -29,8 +29,11 @@ concurrency:
 permissions:
   contents: read
 
+# Node 22 (active LTS): the mcp `npm test` script uses `node --test` with a glob
+# pattern, which is only reliable on Node >= 21 / recent 20.x. The project still
+# supports Node >= 20 at runtime (see package.json "engines").
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
   JAVA_VERSION: "17"
 
 jobs:
@@ -65,7 +68,11 @@ jobs:
 
       - name: Compile + run the full test suite
         working-directory: backend
-        run: ./mvnw -B -ntp clean verify
+        # chmod: the Maven wrapper is committed from Windows without the POSIX
+        # exec bit on some checkouts — ensure it is runnable on the Linux runner.
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp clean verify
 
       - name: Upload surefire reports
         if: always()
@@ -78,7 +85,7 @@ jobs:
 
   # ── Frontend: type-check + unit tests + build ───────────────────────────
   frontend:
-    name: Frontend (Node ${{ '20' }})
+    name: Frontend (Node ${{ '22' }})
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -114,7 +121,7 @@ jobs:
 
   # ── MCP server: type-check + tests + build ──────────────────────────────
   mcp:
-    name: MCP server (Node ${{ '20' }})
+    name: MCP server (Node ${{ '22' }})
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

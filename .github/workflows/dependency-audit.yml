@@ -52,7 +52,9 @@ jobs:
         working-directory: backend
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
-        run: ./mvnw -B -ntp -Powasp -DskipTests -Dnvd.api.key="$NVD_API_KEY" verify
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -Powasp -DskipTests -Dnvd.api.key="$NVD_API_KEY" verify
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
