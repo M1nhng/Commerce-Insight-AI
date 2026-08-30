@@ -123,6 +123,13 @@ jobs:
   mcp:
     name: MCP server (Node ${{ '22' }})
     runs-on: ubuntu-latest
+    # src/config/index.ts validates process.env at import time and requires
+    # MCP_API_KEY (no default). The unit tests pull it in transitively via the
+    # tool providers. Locally this comes from mcp-server/.env; on CI supply a
+    # throwaway test-only value — it is never used to reach a real backend here.
+    env:
+      MCP_API_KEY: ci-mcp-test-key-not-a-real-secret
+      NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
 

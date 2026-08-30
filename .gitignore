@@ -44,8 +44,13 @@ target/
 hs_err_pid*
 replay_pid*
 
-# Maven wrapper
-.mvn/
+# Maven wrapper — the wrapper descriptor MUST be committed so ./mvnw works on CI
+# and fresh clones; only the transient .mvn/ output (timing, extensions cache) is ignored.
+backend/.mvn/*
+!backend/.mvn/wrapper/
+backend/.mvn/wrapper/*
+!backend/.mvn/wrapper/maven-wrapper.properties
+!backend/.mvn/wrapper/maven-wrapper.jar
 
 # ── Spring Boot ───────────────────────────────────────────────────────────────
 backend/src/main/resources/application-local.yml
