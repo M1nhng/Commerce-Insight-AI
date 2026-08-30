@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { warehouseService } from '../services/warehouseService'
 import type {
   WarehouseFilterParams,
@@ -63,9 +64,8 @@ export function useCreateWarehouse() {
       qc.invalidateQueries({ queryKey: WAREHOUSE_KEYS.lists() })
       toast.success('Warehouse created successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to create warehouse'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -80,9 +80,8 @@ export function useUpdateWarehouse() {
       qc.invalidateQueries({ queryKey: WAREHOUSE_KEYS.detail(id) })
       toast.success('Warehouse updated successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update warehouse'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -95,9 +94,8 @@ export function useDeleteWarehouse() {
       qc.invalidateQueries({ queryKey: WAREHOUSE_KEYS.lists() })
       toast.success('Warehouse deleted successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to delete warehouse'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

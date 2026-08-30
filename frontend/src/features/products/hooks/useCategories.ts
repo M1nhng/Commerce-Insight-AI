@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { categoryService } from '../services/categoryService'
 import type { CreateCategoryRequest, UpdateCategoryRequest } from '@/types/product.types'
 
@@ -58,9 +59,8 @@ export function useCreateCategory() {
       qc.invalidateQueries({ queryKey: CATEGORY_KEYS.all })
       toast.success('Category created successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to create category'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -74,9 +74,8 @@ export function useUpdateCategory() {
       qc.invalidateQueries({ queryKey: CATEGORY_KEYS.all })
       toast.success('Category updated successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update category'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -89,9 +88,8 @@ export function useDeleteCategory() {
       qc.invalidateQueries({ queryKey: CATEGORY_KEYS.all })
       toast.success('Category deleted successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to delete category'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

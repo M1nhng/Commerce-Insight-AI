@@ -8,6 +8,7 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth.store'
 import type { LoginRequest, RegisterRequest, Role } from '@/types/api.types'
+import { isAtLeast as roleIsAtLeast } from '@/lib/roles'
 
 export function useAuth() {
   const navigate = useNavigate()
@@ -35,8 +36,8 @@ export function useAuth() {
   }, [store, navigate])
 
   /**
-   * Check if the current user has one of the given roles.
-   * ADMIN > MANAGER > STAFF hierarchy.
+   * Exact role membership (no hierarchy): hasRole('MANAGER') is false for ADMIN.
+   * For "this role or higher" use `isAtLeast`.
    */
   const hasRole = useCallback(
     (...roles: Role[]): boolean => {
@@ -47,17 +48,12 @@ export function useAuth() {
   )
 
   /**
-   * Check if user has minimum role (hierarchy-aware).
-   * isAtLeast('MANAGER') → true for MANAGER and ADMIN
+   * Hierarchy-aware minimum-role check. Single source of truth in lib/roles.ts
+   * (ADMIN > MANAGER > STAFF), mirroring the backend Sprint 12A RoleHierarchy.
+   * UI gating only — the backend still enforces authorization.
    */
   const isAtLeast = useCallback(
-    (minimumRole: Role): boolean => {
-      if (!store.user) return false
-      const hierarchy: Role[] = ['STAFF', 'MANAGER', 'ADMIN']
-      const userIdx = hierarchy.indexOf(store.user.role)
-      const minIdx = hierarchy.indexOf(minimumRole)
-      return userIdx >= minIdx
-    },
+    (minimumRole: Role): boolean => roleIsAtLeast(store.user?.role, minimumRole),
     [store.user]
   )
 

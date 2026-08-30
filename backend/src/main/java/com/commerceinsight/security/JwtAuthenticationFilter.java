@@ -65,6 +65,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
 
+                // Reject a still-valid token whose user has since been locked or
+                // deactivated — closes the ≤ access-token-TTL window where a
+                // just-disabled user would otherwise keep access.
+                if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                    log.debug("JWT rejected: user '{}' is disabled or locked", userId);
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+
                 if (jwtTokenUtil.isTokenValid(token, userDetails)) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(

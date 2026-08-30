@@ -134,6 +134,7 @@ public class ImportController {
 
     @Operation(summary = "Download a CSV template for the given import type")
     @GetMapping(value = "/templates/{type}", produces = "text/csv")
+    @PreAuthorize("hasAnyRole('STAFF', 'MANAGER', 'ADMIN')")
     public ResponseEntity<String> downloadTemplate(@PathVariable ImportType type) {
         String csv = switch (type) {
             case PRODUCT  -> String.join(",", ProductImportService.ALL_HEADERS);

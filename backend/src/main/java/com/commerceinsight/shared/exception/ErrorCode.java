@@ -15,8 +15,12 @@ public enum ErrorCode {
     VALIDATION_ERROR,
     INTERNAL_ERROR,
     RESOURCE_NOT_FOUND,
+    RESOURCE_CONFLICT,
     ACCESS_DENIED,
     AUTHENTICATION_REQUIRED,
+    RATE_LIMIT_EXCEEDED,
+    UNSUPPORTED_MEDIA_TYPE,
+    PAYLOAD_TOO_LARGE,
 
     // ── Authentication ─────────────────────────────────────────────────────
     TOKEN_EXPIRED,

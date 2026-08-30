@@ -2,10 +2,15 @@ package com.commerceinsight.config;
 
 import com.commerceinsight.security.JwtAuthenticationFilter;
 import com.commerceinsight.security.McpApiKeyFilter;
+import com.commerceinsight.security.RateLimitingFilter;
+import com.commerceinsight.security.RestAccessDeniedHandler;
+import com.commerceinsight.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -19,10 +24,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.http.HttpStatus;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 /**
  * SecurityConfig — Spring Security filter chain configuration.
@@ -31,18 +37,14 @@ import org.springframework.http.HttpStatus;
  * <ul>
  *   <li>Stateless session (JWT-only, no cookies for auth)</li>
  *   <li>CSRF disabled (stateless API)</li>
- *   <li>MCP API key filter runs before JWT filter</li>
- *   <li>Method-level security enabled via @PreAuthorize</li>
+ *   <li>Filter order: RateLimiting → McpApiKey → Jwt → app</li>
+ *   <li>Method-level security enabled via {@code @PreAuthorize}, with a
+ *       {@code RoleHierarchy} (ADMIN &gt; MANAGER &gt; STAFF) as defense-in-depth</li>
+ *   <li>401 / 403 emit the standard {@code ApiResponse} error envelope</li>
  * </ul>
  *
- * <p>Public paths (no auth required):
- * <ul>
- *   <li>POST /api/v1/auth/login</li>
- *   <li>POST /api/v1/auth/register</li>
- *   <li>POST /api/v1/auth/refresh</li>
- *   <li>GET /actuator/health</li>
- *   <li>GET /swagger-ui/** and /v3/api-docs/**</li>
- * </ul>
+ * <p>Public paths: {@code POST /api/v1/auth/{login,register,refresh}},
+ * {@code /actuator/health|info}, Swagger UI (disabled in the {@code prod} profile).
  */
 @Configuration
 @EnableWebSecurity
@@ -52,7 +54,10 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final McpApiKeyFilter mcpApiKeyFilter;
+    private final RateLimitingFilter rateLimitingFilter;
     private final UserDetailsService userDetailsService;
+    private final RestAuthenticationEntryPoint authenticationEntryPoint;
+    private final RestAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -77,7 +82,7 @@ public class SecurityConfig {
                 // Actuator health (monitoring)
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
 
-                // Swagger UI + OpenAPI
+                // Swagger UI + OpenAPI (springdoc disables these entirely in prod)
                 .requestMatchers(
                     "/swagger-ui.html",
                     "/swagger-ui/**",
@@ -96,22 +101,31 @@ public class SecurityConfig {
                 .contentTypeOptions(content -> {})
                 .httpStrictTransportSecurity(hsts -> hsts
                     .includeSubDomains(true)
+                    .preload(true)
                     .maxAgeInSeconds(31536000))
                 .referrerPolicy(referrer -> referrer
                     .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                .permissionsPolicyHeader(pp -> pp.policy(
+                    "geolocation=(), camera=(), microphone=(), payment=(), usb=(), interest-cohort=()"))
+                // Strict CSP for the JSON API only — Swagger UI (dev) keeps its own.
+                .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                    PathPatternRequestMatcher.withDefaults().matcher("/api/**"),
+                    new ContentSecurityPolicyHeaderWriter(
+                        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")))
             )
 
-            // ── Exception Handling ────────────────────────────────────────
-            // Return 401 Unauthorized for unauthenticated requests (not 403)
+            // ── Exception Handling: enveloped 401 / 403 ───────────────────
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
             )
 
             // ── Authentication Provider ───────────────────────────────────
             .authenticationProvider(authenticationProvider())
 
             // ── Custom Filters ────────────────────────────────────────────
-            // MCP filter runs first, JWT filter runs second
+            // Rate limiting first, then MCP key, then JWT.
+            .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(mcpApiKeyFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
@@ -139,5 +153,20 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder(12);
+    }
+
+    /**
+     * Role hierarchy — defense-in-depth only. Current {@code @PreAuthorize}
+     * annotations already enumerate every accepted role, so effective access is
+     * unchanged; this guards against a future dropped-role mistake and lets a
+     * {@code hasRole('STAFF')} check also admit MANAGER/ADMIN.
+     * {@code ROLE_MCP_SERVICE} is intentionally outside the hierarchy.
+     */
+    @Bean
+    public RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.withDefaultRolePrefix()
+                .role("ADMIN").implies("MANAGER")
+                .role("MANAGER").implies("STAFF")
+                .build();
     }
 }

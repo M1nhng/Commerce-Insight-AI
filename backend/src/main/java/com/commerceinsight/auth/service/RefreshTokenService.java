@@ -1,5 +1,6 @@
 package com.commerceinsight.auth.service;
 
+import com.commerceinsight.admin.service.AuditLogService;
 import com.commerceinsight.auth.domain.RefreshToken;
 import com.commerceinsight.auth.repository.RefreshTokenRepository;
 import com.commerceinsight.shared.exception.ErrorCode;
@@ -35,6 +36,7 @@ import java.util.UUID;
 public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
+    private final AuditLogService auditLogService;
 
     @Value("${app.jwt.refresh-token-expiration-days}")
     private int refreshTokenExpirationDays;
@@ -99,6 +101,11 @@ public class RefreshTokenService {
      */
     @Transactional
     public RefreshToken validateAndRotate(String plainToken) {
+        return validateAndRotate(plainToken, null);
+    }
+
+    @Transactional
+    public RefreshToken validateAndRotate(String plainToken, String ipAddress) {
         String tokenHash = hashToken(plainToken);
 
         RefreshToken token = refreshTokenRepository.findByTokenHash(tokenHash)
@@ -110,9 +117,11 @@ public class RefreshTokenService {
 
         // Reuse detection: token already revoked
         if (token.isRevoked()) {
+            UUID userId = token.getUser().getId();
             log.warn("SECURITY: Refresh token reuse detected for user {}! " +
-                    "Revoking entire family {}.", token.getUser().getId(), token.getFamilyId());
+                    "Revoking entire family {}.", userId, token.getFamilyId());
             refreshTokenRepository.revokeAllByFamilyId(token.getFamilyId(), Instant.now());
+            auditLogService.log(userId, AuditLogService.ACTION_REFRESH_TOKEN_REUSE, ipAddress);
             throw new BusinessRuleException(ErrorCode.REFRESH_TOKEN_REUSE_DETECTED,
                     "Refresh token has already been used. Please log in again.");
         }

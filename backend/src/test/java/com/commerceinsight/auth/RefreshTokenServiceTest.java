@@ -34,6 +34,7 @@ import static org.mockito.BDDMockito.*;
 class RefreshTokenServiceTest {
 
     @Mock private RefreshTokenRepository refreshTokenRepository;
+    @Mock private com.commerceinsight.admin.service.AuditLogService auditLogService;
 
     @InjectMocks
     private RefreshTokenService refreshTokenService;

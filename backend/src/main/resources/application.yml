@@ -89,7 +89,7 @@ logging:
     org.springframework.security: WARN
     org.hibernate.SQL: WARN
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] [%X{requestId:-}] %-5level %logger{36} - %msg%n"
 
 # ── Application Custom Properties ─────────────────────────────────────────
 app:
@@ -104,13 +104,42 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:3000}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
-    allowed-headers: "*"
-    allow-credentials: true
+    allowed-headers: ${CORS_ALLOWED_HEADERS:Authorization,Content-Type,Accept,Origin,X-Requested-With,X-Request-Id}
+    # Tokens are carried in the response body, not cookies — credentials are not required.
+    allow-credentials: ${CORS_ALLOW_CREDENTIALS:false}
     max-age: 3600
 
   # MCP Server
   mcp:
     api-key: ${MCP_API_KEY:mcp-dev-secret-key-change-in-production}
+
+  # Security hardening (Sprint 12A)
+  security:
+    # Comma-separated IPs / CIDR ranges whose X-Forwarded-For / X-Real-IP is trusted.
+    # Empty = trust nothing (use the direct peer address).
+    trusted-proxies: ${TRUSTED_PROXIES:}
+    request-id-header: X-Request-Id
+
+  # Rate limiting (Sprint 12A) — in-memory (bucket4j), per rolling window.
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    login:
+      capacity: 5
+      window-seconds: 60
+      secondary-capacity: 20
+      secondary-window-seconds: 3600
+    register:
+      capacity: 5
+      window-seconds: 3600
+    refresh:
+      capacity: 30
+      window-seconds: 60
+    import-upload:
+      capacity: 10
+      window-seconds: 60
+    export:
+      capacity: 10
+      window-seconds: 60
 
   # Data Import
   import:

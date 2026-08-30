@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { stockAdjustmentService } from '../services/stockAdjustmentService'
 import type {
   StockAdjustmentFilterParams,
@@ -42,9 +43,8 @@ export function useRequestAdjustment() {
       qc.invalidateQueries({ queryKey: ADJUSTMENT_KEYS.lists() })
       toast.success('Adjustment request submitted — awaiting approval')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to submit adjustment request'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -60,9 +60,8 @@ export function useApproveAdjustment() {
       qc.invalidateQueries({ queryKey: INVENTORY_KEYS.lowStock() })
       toast.success('Adjustment approved — stock updated')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to approve adjustment'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -76,9 +75,8 @@ export function useRejectAdjustment() {
       qc.invalidateQueries({ queryKey: ADJUSTMENT_KEYS.lists() })
       toast.success('Adjustment rejected')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to reject adjustment'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

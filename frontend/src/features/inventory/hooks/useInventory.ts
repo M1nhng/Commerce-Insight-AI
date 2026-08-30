@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { inventoryService } from '../services/inventoryService'
 import type {
   InventoryFilterParams,
@@ -87,9 +88,8 @@ export function useAdjustStock() {
       qc.invalidateQueries({ queryKey: INVENTORY_KEYS.lowStock() })
       toast.success('Stock adjusted successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to adjust stock'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -105,9 +105,8 @@ export function useTransferStock() {
       qc.invalidateQueries({ queryKey: WAREHOUSE_KEYS.all })
       toast.success('Stock transferred successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to transfer stock'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

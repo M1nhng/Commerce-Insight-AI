@@ -5,6 +5,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { importService } from '../services/importService'
 import { IMPORT_KEYS } from './useImportJobs'
 import type { ImportType } from '../types/import.types'
@@ -32,11 +33,10 @@ export function useUploadImport() {
       navigate(`/import/jobs/${job.id}`)
     },
 
-    onError: (err: any) => {
-      const msg =
-        err?.response?.data?.error?.message ??
-        'Upload failed. Please check your file and try again.'
-      toast.error(msg)
+    onError: (err) => {
+      // Central normalizer maps 413 → "file too large", 415 → "unsupported
+      // type", 429 → rate-limit, 403 → permission denied, 409 → safe conflict.
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -45,9 +45,8 @@ export function useUploadImport() {
 export function useDownloadTemplate() {
   return useMutation({
     mutationFn: (type: ImportType) => importService.downloadTemplate(type),
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to download template'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

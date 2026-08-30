@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { customerService } from '../services/customerService'
 import { CUSTOMER_GROUP_KEYS } from './useCustomerGroups'
 import type {
@@ -53,9 +54,8 @@ export function useCreateCustomer() {
       qc.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() })
       toast.success('Customer created successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to create customer'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -70,9 +70,8 @@ export function useUpdateCustomer() {
       qc.invalidateQueries({ queryKey: CUSTOMER_KEYS.detail(id) })
       toast.success('Customer updated successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update customer'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -85,9 +84,8 @@ export function useDeleteCustomer() {
       qc.invalidateQueries({ queryKey: CUSTOMER_KEYS.lists() })
       toast.success('Customer deleted successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to delete customer'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -104,9 +102,8 @@ export function useUpdateCustomerStatus() {
       qc.invalidateQueries({ queryKey: CUSTOMER_GROUP_KEYS.all })
       toast.success('Customer status updated')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update customer status'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
