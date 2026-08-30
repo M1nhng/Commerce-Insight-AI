@@ -1,142 +1,204 @@
 /**
- * services/axios.ts — Axios instance with JWT interceptors.
+ * services/axios.ts — Shared Axios instance + authentication interceptors.
  *
  * Responsibilities:
- * 1. Attach Authorization: Bearer <token> to every request.
- * 2. On 401 responses: automatically attempt token refresh.
- * 3. On refresh success: retry the original failed request.
- * 4. On refresh failure: clear auth state and redirect to /login.
- * 5. Never expose raw Axios errors — normalize to ApiError.
+ * 1. Attach `Authorization: Bearer <accessToken>` to authenticated requests
+ *    (never to login / register / refresh).
+ * 2. Capture the backend correlation id (`X-Request-Id`) for troubleshooting.
+ * 3. On 401: attempt a token refresh EXACTLY ONCE per request, with a
+ *    single-flight guarantee — many concurrent 401s share ONE refresh call.
+ * 4. On refresh success: retry the original request once.
+ * 5. On refresh failure / 401-after-retry: clear auth + query cache and send
+ *    the user to /login (once).
+ * 6. 403 and 429 are NOT authentication failures — they never refresh and
+ *    never log the user out. They are rejected for the feature layer to
+ *    surface via the shared error normalizer.
+ *
+ * Security: this module never logs request/response objects, Axios config,
+ * Authorization headers, or tokens.
  */
 import axios, {
   type AxiosInstance,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios'
+import toast from 'react-hot-toast'
 import type { ApiResponse, AuthResponse } from '@/types/api.types'
+import {
+  getAccessToken,
+  getRefreshToken,
+  setTokens,
+  clearTokens,
+} from '@/lib/authTokens'
+import { queryClient } from '@/providers/QueryProvider'
+import { setLastRequestId } from '@/lib/requestId'
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+const API_PREFIX = `${BASE_URL}/api/v1`
 
-// ── Axios Instance ──────────────────────────────────────────────────────
+// ── Axios instance ──────────────────────────────────────────────────────────
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: `${BASE_URL}/api/v1`,
+  baseURL: API_PREFIX,
   timeout: 15_000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json' },
 })
 
-// Token refresh state — prevent concurrent refresh calls
-let isRefreshing = false
-let failedQueue: Array<{
-  resolve: (token: string) => void
-  reject: (error: unknown) => void
-}> = []
+/** Requests that must never carry an Authorization header. */
+const NO_AUTH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh']
 
-const processQueue = (error: unknown, token: string | null = null) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error)
-    } else if (token) {
-      resolve(token)
-    }
-  })
-  failedQueue = []
+function isNoAuthPath(url: string | undefined): boolean {
+  if (!url) return false
+  return NO_AUTH_PATHS.some((p) => url.includes(p))
 }
 
-// ── Request Interceptor — Attach JWT ────────────────────────────────────
+// ── Request interceptor — attach JWT ───────────────────────────────────────
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Dynamically read token on each request (not captured at startup)
-    const token = localStorage.getItem('access_token')
-    if (token && config.headers) {
-      config.headers.Authorization = `Bearer ${token}`
+    if (!isNoAuthPath(config.url)) {
+      const token = getAccessToken()
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+    } else if (config.headers) {
+      // Defensive: strip any stale header set as an instance default.
+      delete config.headers.Authorization
     }
     return config
   },
   (error) => Promise.reject(error)
 )
 
-// ── Response Interceptor — Handle 401 + Token Refresh ─────────────────
-apiClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
-  async (error) => {
-    const originalRequest = error.config
+// ── Single-flight refresh ──────────────────────────────────────────────────
+/** The in-flight refresh, or null. Guarantees at most one refresh HTTP call. */
+let refreshPromise: Promise<string> | null = null
+/** Ensures the "session expired" toast + redirect only fire once. */
+let authFailureHandled = false
 
-    // Only intercept 401 that is NOT from the refresh or login endpoints
-    const isAuthEndpoint =
-      originalRequest?.url?.includes('/auth/login') ||
-      originalRequest?.url?.includes('/auth/refresh') ||
-      originalRequest?.url?.includes('/auth/register')
+/**
+ * Perform the refresh exactly once; concurrent callers await the same promise.
+ * Uses a bare axios call (not apiClient) so it can never recurse through this
+ * interceptor.
+ */
+function refreshAccessToken(): Promise<string> {
+  if (refreshPromise) return refreshPromise
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !isAuthEndpoint
-    ) {
-      if (isRefreshing) {
-        // Queue this request until refresh completes
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`
-            return apiClient(originalRequest)
-          })
-          .catch((err) => Promise.reject(err))
-      }
+  refreshPromise = (async () => {
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) throw new Error('missing_refresh_token')
 
-      originalRequest._retry = true
-      isRefreshing = true
-
-      const refreshToken = localStorage.getItem('refresh_token')
-
-      if (!refreshToken) {
-        isRefreshing = false
-        clearAuthAndRedirect()
-        return Promise.reject(error)
-      }
-
-      try {
-        const response = await axios.post<ApiResponse<AuthResponse>>(
-          `${BASE_URL}/api/v1/auth/refresh`,
-          { refreshToken }
-        )
-
-        const data = response.data.data
-        if (!data) throw new Error('Refresh failed: empty response')
-
-        // Store new tokens
-        localStorage.setItem('access_token', data.accessToken)
-        localStorage.setItem('refresh_token', data.refreshToken)
-
-        // Update default header
-        apiClient.defaults.headers.common.Authorization = `Bearer ${data.accessToken}`
-
-        processQueue(null, data.accessToken)
-
-        // Retry the original request
-        originalRequest.headers.Authorization = `Bearer ${data.accessToken}`
-        return apiClient(originalRequest)
-      } catch (refreshError) {
-        processQueue(refreshError, null)
-        clearAuthAndRedirect()
-        return Promise.reject(refreshError)
-      } finally {
-        isRefreshing = false
-      }
+    const response = await axios.post<ApiResponse<AuthResponse>>(
+      `${API_PREFIX}/auth/refresh`,
+      { refreshToken },
+      { timeout: 15_000 }
+    )
+    const data = response.data?.data
+    if (!data?.accessToken || !data?.refreshToken) {
+      throw new Error('empty_refresh_response')
     }
 
-    return Promise.reject(error)
+    setTokens(data.accessToken, data.refreshToken)
+    apiClient.defaults.headers.common.Authorization = `Bearer ${data.accessToken}`
+
+    // Keep the persisted auth store in sync so a later reload uses the new
+    // token. Dynamic import avoids a static import cycle (store → service →
+    // axios). Failure here is non-fatal.
+    void import('@/store/auth.store')
+      .then((m) => m.useAuthStore.getState().applyRefreshedTokens(data))
+      .catch(() => undefined)
+
+    return data.accessToken
+  })().finally(() => {
+    refreshPromise = null
+  })
+
+  return refreshPromise
+}
+
+/**
+ * Terminal auth failure: wipe local session state and route to /login once.
+ * Never called for 403 or 429.
+ */
+function handleAuthFailure(): void {
+  if (authFailureHandled) return
+  authFailureHandled = true
+
+  clearTokens()
+  try {
+    queryClient.clear()
+  } catch {
+    /* non-fatal */
+  }
+  void import('@/store/auth.store')
+    .then((m) => m.useAuthStore.getState().forceLogout())
+    .catch(() => undefined)
+
+  const path = window.location.pathname
+  if (path !== '/login') {
+    toast.error('Your session has expired. Please sign in again.', {
+      id: 'session-expired',
+    })
+    const redirect = encodeURIComponent(path + window.location.search)
+    window.location.assign(`/login?session=expired&redirect=${redirect}`)
+  }
+}
+
+// ── Response interceptor — correlation id + 401 refresh ────────────────────
+apiClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    const rid = response.headers?.['x-request-id']
+    if (typeof rid === 'string' && rid) setLastRequestId(rid)
+    return response
+  },
+  async (error) => {
+    const rid = error.response?.headers?.['x-request-id']
+    if (typeof rid === 'string' && rid) setLastRequestId(rid)
+
+    const originalRequest = error.config as
+      | (InternalAxiosRequestConfig & { _retry?: boolean })
+      | undefined
+    const status = error.response?.status
+
+    const canAttemptRefresh =
+      status === 401 &&
+      !!originalRequest &&
+      !originalRequest._retry &&
+      !isNoAuthPath(originalRequest.url)
+
+    if (!canAttemptRefresh) {
+      // 401 on an auth endpoint or after a retry → terminal.
+      if (
+        status === 401 &&
+        originalRequest &&
+        !isNoAuthPath(originalRequest.url)
+      ) {
+        handleAuthFailure()
+      }
+      // 403 / 429 / 4xx / 5xx / network: pass through untouched.
+      return Promise.reject(error)
+    }
+
+    originalRequest._retry = true
+
+    try {
+      const newToken = await refreshAccessToken()
+      originalRequest.headers = originalRequest.headers ?? {}
+      originalRequest.headers.Authorization = `Bearer ${newToken}`
+      return apiClient(originalRequest)
+    } catch (refreshError) {
+      handleAuthFailure()
+      return Promise.reject(refreshError)
+    }
   }
 )
 
-function clearAuthAndRedirect() {
-  localStorage.removeItem('access_token')
-  localStorage.removeItem('refresh_token')
-  localStorage.removeItem('user')
-  // Hard redirect to login — avoids stale React state
-  window.location.href = '/login'
+/**
+ * Test-only: clear the module-level single-flight / one-shot guard state so
+ * each test starts clean. Never called in application code.
+ * @internal
+ */
+export function __resetAuthInterceptorState(): void {
+  refreshPromise = null
+  authFailureHandled = false
 }
 
 export default apiClient

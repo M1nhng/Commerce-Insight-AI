@@ -66,6 +66,18 @@ public class AuditLogService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(UUID userId, String action, String entityType, UUID entityId,
                     String oldValue, String newValue, String ipAddress) {
+        log(userId, action, entityType, entityId, oldValue, newValue, ipAddress, null);
+    }
+
+    /**
+     * Full overload including the request User-Agent.
+     *
+     * @param userAgent the client User-Agent header — nullable
+     */
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void log(UUID userId, String action, String entityType, UUID entityId,
+                    String oldValue, String newValue, String ipAddress, String userAgent) {
         try {
             AuditLog entry = AuditLog.builder()
                     .userId(userId)
@@ -75,6 +87,7 @@ public class AuditLogService {
                     .oldValue(oldValue)
                     .newValue(newValue)
                     .ipAddress(ipAddress)
+                    .userAgent(truncate(userAgent, 1000))
                     .build();
 
             auditLogRepository.save(entry);
@@ -98,6 +111,22 @@ public class AuditLogService {
     @Async
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(UUID userId, String action, String ipAddress) {
-        log(userId, action, null, null, null, null, ipAddress);
+        log(userId, action, null, null, null, null, ipAddress, null);
+    }
+
+    /**
+     * Convenience overload — simple action with IP and User-Agent.
+     */
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void log(UUID userId, String action, String ipAddress, String userAgent) {
+        log(userId, action, null, null, null, null, ipAddress, userAgent);
+    }
+
+    private static String truncate(String value, int max) {
+        if (value == null) {
+            return null;
+        }
+        return value.length() <= max ? value : value.substring(0, max);
     }
 }

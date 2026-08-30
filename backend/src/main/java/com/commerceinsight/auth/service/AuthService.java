@@ -22,7 +22,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +63,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final AuditLogService auditLogService;
+    private final LoginHistoryService loginHistoryService;
 
     // ── Register ─────────────────────────────────────────────────────────
 
@@ -79,11 +79,16 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        return register(request, null);
+        return register(request, null, null);
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request, String ipAddress) {
+        return register(request, ipAddress, null);
+    }
+
+    @Transactional
+    public AuthResponse register(RegisterRequest request, String ipAddress, String userAgent) {
         if (userRepository.existsByEmail(request.email())) {
             throw DuplicateResourceException.email(request.email());
         }
@@ -100,11 +105,10 @@ public class AuthService {
                 .build();
 
         User savedUser = userRepository.save(user);
-        log.info("New user registered: {} ({})", savedUser.getEmail(), savedUser.getId());
+        log.info("New user registered: id={}", savedUser.getId());
 
         auditLogService.log(savedUser.getId(), AuditLogService.ACTION_USER_CREATED,
-                "User", savedUser.getId(), null,
-                String.format("{\"email\":\"%s\"}", savedUser.getEmail()), ipAddress);
+                "User", savedUser.getId(), null, null, ipAddress, userAgent);
 
         return buildAuthResponse(savedUser, true);
     }
@@ -130,25 +134,40 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        return login(request, null);
+        return login(request, null, null);
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request, String ipAddress) {
-        User user = userRepository.findByEmail(request.email().toLowerCase().trim())
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
+        return login(request, ipAddress, null);
+    }
+
+    @Transactional
+    public AuthResponse login(LoginRequest request, String ipAddress, String userAgent) {
+        String email = request.email().toLowerCase().trim();
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            loginHistoryService.record(email, null, ipAddress, userAgent,
+                    false, LoginHistoryService.REASON_INVALID_CREDENTIALS);
+            throw new BadCredentialsException("Invalid email or password");
+        }
 
         // Pre-auth checks
         if (user.isLocked()) {
+            loginHistoryService.record(email, user.getId(), ipAddress, userAgent,
+                    false, LoginHistoryService.REASON_ACCOUNT_LOCKED);
             throw new LockedException("Account is locked. Please contact an administrator.");
         }
         if (!user.isActive()) {
+            loginHistoryService.record(email, user.getId(), ipAddress, userAgent,
+                    false, LoginHistoryService.REASON_ACCOUNT_DISABLED);
             throw new DisabledException("Account is deactivated.");
         }
 
         try {
             // Delegate to Spring Security (BCrypt verification + UserDetailsService)
-            Authentication authentication = authenticationManager.authenticate(
+            authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             user.getId().toString(),  // username = UUID (per UserDetailsServiceImpl)
                             request.password()
@@ -160,14 +179,17 @@ public class AuthService {
             user.setLastLoginAt(Instant.now());
             userRepository.save(user);
 
-            log.info("User logged in: {} ({})", user.getEmail(), user.getId());
-            auditLogService.log(user.getId(), AuditLogService.ACTION_USER_LOGIN, ipAddress);
+            log.info("User logged in: id={}", user.getId());
+            auditLogService.log(user.getId(), AuditLogService.ACTION_USER_LOGIN, ipAddress, userAgent);
+            loginHistoryService.record(email, user.getId(), ipAddress, userAgent, true, null);
             return buildAuthResponse(user, true);
 
         } catch (BadCredentialsException ex) {
             // Track failed attempts and potentially lock account
             handleFailedLogin(user);
-            auditLogService.log(user.getId(), AuditLogService.ACTION_USER_LOGIN_FAILED, ipAddress);
+            auditLogService.log(user.getId(), AuditLogService.ACTION_USER_LOGIN_FAILED, ipAddress, userAgent);
+            loginHistoryService.record(email, user.getId(), ipAddress, userAgent,
+                    false, LoginHistoryService.REASON_INVALID_CREDENTIALS);
             throw new BadCredentialsException("Invalid email or password");
         }
     }
@@ -189,8 +211,14 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse refresh(String plainRefreshToken) {
-        // Validate the token, revoke it, and get the associated user
-        RefreshToken oldToken = refreshTokenService.validateAndRotate(plainRefreshToken);
+        return refresh(plainRefreshToken, null, null);
+    }
+
+    @Transactional
+    public AuthResponse refresh(String plainRefreshToken, String ipAddress, String userAgent) {
+        // Validate the token, revoke it, and get the associated user.
+        // Reuse detection is audited inside RefreshTokenService.
+        RefreshToken oldToken = refreshTokenService.validateAndRotate(plainRefreshToken, ipAddress);
         User user = oldToken.getUser();
 
         // Ensure user is still active
@@ -207,6 +235,7 @@ public class AuthService {
         String newAccessToken = buildAccessToken(user);
 
         log.debug("Token refreshed for user {}", user.getId());
+        auditLogService.log(user.getId(), AuditLogService.ACTION_TOKEN_REFRESH, ipAddress, userAgent);
         return AuthResponse.tokenOnly(newAccessToken, newRefreshToken,
                 jwtTokenUtil.getAccessTokenExpirationSeconds());
     }
@@ -220,14 +249,19 @@ public class AuthService {
      */
     @Transactional
     public void logout(UUID userId) {
-        logout(userId, null);
+        logout(userId, null, null);
     }
 
     @Transactional
     public void logout(UUID userId, String ipAddress) {
+        logout(userId, ipAddress, null);
+    }
+
+    @Transactional
+    public void logout(UUID userId, String ipAddress, String userAgent) {
         int revoked = refreshTokenService.revokeAllForUser(userId);
         log.info("User {} logged out. Revoked {} refresh token(s).", userId, revoked);
-        auditLogService.log(userId, AuditLogService.ACTION_USER_LOGOUT, ipAddress);
+        auditLogService.log(userId, AuditLogService.ACTION_USER_LOGOUT, ipAddress, userAgent);
     }
 
     // ── Current User ──────────────────────────────────────────────────────

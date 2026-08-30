@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { orderService } from '../services/orderService'
 import type {
   OrderFilterParams,
@@ -52,9 +53,8 @@ export function useCreateOrder() {
       qc.invalidateQueries({ queryKey: ORDER_KEYS.lists() })
       toast.success('Order created successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to create order'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -69,9 +69,8 @@ export function useUpdateOrderStatus() {
       qc.invalidateQueries({ queryKey: ORDER_KEYS.detail(id) })
       toast.success('Order status updated')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update order status'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -86,9 +85,8 @@ export function useCancelOrder() {
       qc.invalidateQueries({ queryKey: ORDER_KEYS.detail(id) })
       toast.success('Order cancelled')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to cancel order'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

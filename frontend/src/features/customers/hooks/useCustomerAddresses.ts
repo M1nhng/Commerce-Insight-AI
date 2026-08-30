@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { customerAddressService } from '../services/customerAddressService'
 import { CUSTOMER_KEYS } from './useCustomers'
 import type { CreateAddressRequest, UpdateAddressRequest } from '@/types/customer.types'
@@ -39,9 +40,8 @@ export function useAddAddress() {
       qc.invalidateQueries({ queryKey: CUSTOMER_KEYS.detail(customerId) })
       toast.success('Address added successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to add address'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -59,9 +59,8 @@ export function useUpdateAddress() {
       qc.invalidateQueries({ queryKey: CUSTOMER_ADDRESS_KEYS.list(customerId) })
       toast.success('Address updated successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update address'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -75,9 +74,8 @@ export function useDeleteAddress() {
       qc.invalidateQueries({ queryKey: CUSTOMER_ADDRESS_KEYS.list(customerId) })
       toast.success('Address deleted successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to delete address'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -91,9 +89,8 @@ export function useSetDefaultAddress() {
       qc.invalidateQueries({ queryKey: CUSTOMER_ADDRESS_KEYS.list(customerId) })
       toast.success('Default address updated')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to set default address'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

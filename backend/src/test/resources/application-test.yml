@@ -28,6 +28,12 @@ app:
     secret: CommerceInsightAIDevSecretKeyMustBe256BitsLongForHMACSHA256OK
     access-token-expiration-ms: 900000   # 15 minutes
     refresh-token-expiration-days: 1
+  # Rate limiting off by default for tests; RateLimitIntegrationTest re-enables
+  # it with low limits via @TestPropertySource.
+  rate-limit:
+    enabled: false
+  security:
+    trusted-proxies: ""
 
 logging:
   level:

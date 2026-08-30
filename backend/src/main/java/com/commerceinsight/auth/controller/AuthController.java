@@ -5,8 +5,10 @@ import com.commerceinsight.auth.dto.request.RefreshTokenRequest;
 import com.commerceinsight.auth.dto.request.RegisterRequest;
 import com.commerceinsight.auth.dto.response.AuthResponse;
 import com.commerceinsight.auth.service.AuthService;
+import com.commerceinsight.security.ClientIpResolver;
 import com.commerceinsight.security.SecurityContextHelper;
 import com.commerceinsight.shared.dto.ApiResponse;
+import org.springframework.http.HttpHeaders;
 import com.commerceinsight.user.dto.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -52,6 +54,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final SecurityContextHelper securityContextHelper;
+    private final ClientIpResolver clientIpResolver;
 
     /**
      * POST /api/v1/auth/register
@@ -65,7 +68,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request,
             HttpServletRequest httpRequest) {
-        AuthResponse response = authService.register(request, extractIp(httpRequest));
+        AuthResponse response = authService.register(
+                request, clientIp(httpRequest), userAgent(httpRequest));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Registration successful"));
     }
@@ -82,7 +86,8 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody LoginRequest request,
             HttpServletRequest httpRequest) {
-        AuthResponse response = authService.login(request, extractIp(httpRequest));
+        AuthResponse response = authService.login(
+                request, clientIp(httpRequest), userAgent(httpRequest));
         return ResponseEntity.ok(ApiResponse.success(response, "Login successful"));
     }
 
@@ -96,8 +101,10 @@ public class AuthController {
     @Operation(summary = "Refresh access token",
                description = "Exchanges a refresh token for a new access token. Old refresh token is revoked (rotation).")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
-            @Valid @RequestBody RefreshTokenRequest request) {
-        AuthResponse response = authService.refresh(request.refreshToken());
+            @Valid @RequestBody RefreshTokenRequest request,
+            HttpServletRequest httpRequest) {
+        AuthResponse response = authService.refresh(
+                request.refreshToken(), clientIp(httpRequest), userAgent(httpRequest));
         return ResponseEntity.ok(ApiResponse.success(response, "Token refreshed successfully"));
     }
 
@@ -115,7 +122,7 @@ public class AuthController {
                description = "Revokes all refresh tokens for the authenticated user.")
     public ResponseEntity<ApiResponse<Void>> logout(HttpServletRequest httpRequest) {
         UUID currentUserId = securityContextHelper.getCurrentUserId();
-        authService.logout(currentUserId, extractIp(httpRequest));
+        authService.logout(currentUserId, clientIp(httpRequest), userAgent(httpRequest));
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
     }
 
@@ -158,14 +165,19 @@ public class AuthController {
     // ── Internal Helpers ──────────────────────────────────────────────────
 
     /**
-     * Extract the client IP address from the request.
-     * Handles reverse proxy via X-Forwarded-For header.
+     * Resolve the client IP. {@code X-Forwarded-For} is honoured only from
+     * configured trusted proxies (see {@link ClientIpResolver}).
      */
-    private String extractIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isEmpty()) {
-            return forwarded.split(",")[0].trim();
+    private String clientIp(HttpServletRequest request) {
+        return clientIpResolver.resolve(request);
+    }
+
+    /** The request User-Agent, capped so a hostile header can't bloat storage. */
+    private String userAgent(HttpServletRequest request) {
+        String ua = request.getHeader(HttpHeaders.USER_AGENT);
+        if (ua == null) {
+            return null;
         }
-        return request.getRemoteAddr();
+        return ua.length() <= 2000 ? ua : ua.substring(0, 2000);
     }
 }

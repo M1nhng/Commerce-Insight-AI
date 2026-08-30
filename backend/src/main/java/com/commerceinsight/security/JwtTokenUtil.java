@@ -3,13 +3,14 @@ package com.commerceinsight.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.function.Function;
 
@@ -35,6 +36,11 @@ public class JwtTokenUtil {
 
     private static final String CLAIM_ROLES = "roles";
     private static final String CLAIM_EMAIL = "email";
+    private static final String CLAIM_TOKEN_TYPE = "typ";
+    private static final String TOKEN_TYPE_ACCESS = "access";
+
+    /** HS256 requires a key of at least 256 bits. */
+    private static final int MIN_KEY_BYTES = 32;
 
     @Value("${app.jwt.secret}")
     private String jwtSecret;
@@ -44,6 +50,22 @@ public class JwtTokenUtil {
 
     @Value("${app.jwt.issuer}")
     private String issuer;
+
+    /**
+     * Validate the signing key at startup so a weak/short secret fails fast with
+     * a clear message rather than lazily on the first token operation.
+     */
+    @PostConstruct
+    void validateSigningKey() {
+        byte[] keyBytes = decodeSecret();
+        if (keyBytes.length < MIN_KEY_BYTES) {
+            throw new IllegalStateException(
+                    "app.jwt.secret is too short: HS256 requires a key of at least "
+                            + MIN_KEY_BYTES + " bytes (256 bits), got " + keyBytes.length + ".");
+        }
+        log.info("JwtTokenUtil: signing key OK ({} bytes), issuer='{}', accessTtl={}s",
+                keyBytes.length, issuer, accessTokenExpirationMs / 1000);
+    }
 
     // ── Token Generation ────────────────────────────────────────────────
 
@@ -64,8 +86,10 @@ public class JwtTokenUtil {
         return Jwts.builder()
                 .subject(userId.toString())
                 .issuer(issuer)
+                .id(UUID.randomUUID().toString())          // jti — for log correlation
                 .issuedAt(now)
                 .expiration(expiry)
+                .claim(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS)
                 .claim(CLAIM_ROLES, roles)
                 .claim(CLAIM_EMAIL, email)
                 .signWith(getSigningKey())
@@ -157,19 +181,27 @@ public class JwtTokenUtil {
         return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .requireIssuer(issuer)
+                .require(CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS)   // reject refresh/other token types
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes;
+        return Keys.hmacShaKeyFor(decodeSecret());
+    }
+
+    /**
+     * Decode the configured secret: Base64 first, falling back to raw UTF-8
+     * bytes for plain-text secrets (dev/test). Length is enforced in
+     * {@link #validateSigningKey()}.
+     */
+    private byte[] decodeSecret() {
         try {
-            keyBytes = Decoders.BASE64.decode(jwtSecret);
-        } catch (IllegalArgumentException ex) {
-            // If not Base64, use the raw bytes (for plain-text secrets in dev)
-            keyBytes = jwtSecret.getBytes();
+            return Decoders.BASE64.decode(jwtSecret);
+        } catch (RuntimeException ex) {
+            // Not valid Base64 (e.g. a plain-text dev secret) — use the raw bytes.
+            return jwtSecret.getBytes(StandardCharsets.UTF_8);
         }
-        return Keys.hmacShaKeyFor(keyBytes);
     }
 }

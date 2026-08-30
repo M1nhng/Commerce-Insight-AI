@@ -12,8 +12,20 @@
  */
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { UserResponse, LoginRequest, RegisterRequest } from '@/types/api.types'
+import type {
+  UserResponse,
+  LoginRequest,
+  RegisterRequest,
+  AuthResponse,
+} from '@/types/api.types'
 import { authService } from '@/services/auth.service'
+import {
+  setTokens,
+  clearTokens,
+  getAccessToken as getStoredAccessToken,
+  getRefreshToken as getStoredRefreshToken,
+} from '@/lib/authTokens'
+import { getErrorMessage } from '@/lib/apiError'
 
 // ── State Shape ───────────────────────────────────────────────────────────
 
@@ -36,6 +48,10 @@ interface AuthActions {
   login: (data: LoginRequest) => Promise<void>
   register: (data: RegisterRequest) => Promise<void>
   logout: () => Promise<void>
+  /** Wipe local auth state without a server call — used after a failed token refresh. */
+  forceLogout: () => void
+  /** Sync tokens into the store after the Axios interceptor rotates them. */
+  applyRefreshedTokens: (tokens: Pick<AuthResponse, 'accessToken' | 'refreshToken'>) => void
   refreshCurrentUser: () => Promise<void>
   initialize: () => Promise<void>
   clearError: () => void
@@ -72,8 +88,7 @@ export const useAuthStore = create<AuthStore>()(
           const response = await authService.login(data)
 
           // Persist tokens to localStorage for the Axios interceptor
-          localStorage.setItem('access_token', response.accessToken)
-          localStorage.setItem('refresh_token', response.refreshToken)
+          setTokens(response.accessToken, response.refreshToken)
 
           set({
             user: response.user,
@@ -98,8 +113,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const response = await authService.register(data)
 
-          localStorage.setItem('access_token', response.accessToken)
-          localStorage.setItem('refresh_token', response.refreshToken)
+          setTokens(response.accessToken, response.refreshToken)
 
           set({
             user: response.user,
@@ -126,14 +140,32 @@ export const useAuthStore = create<AuthStore>()(
         } catch {
           // Ignore server errors — still clear local state
         } finally {
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
+          clearTokens()
           set({
             ...initialState,
             isInitializing: false,
             isLoading: false,
           })
         }
+      },
+
+      /**
+       * Force-clear auth state with no server round-trip. Called by the Axios
+       * interceptor when a token refresh fails — the interceptor also performs
+       * the hard redirect to /login.
+       */
+      forceLogout: () => {
+        clearTokens()
+        set({ ...initialState, isInitializing: false, isLoading: false })
+      },
+
+      /**
+       * Adopt tokens rotated by the Axios refresh flow so a subsequent reload
+       * reads the fresh access token from the persisted store.
+       */
+      applyRefreshedTokens: ({ accessToken, refreshToken }) => {
+        setTokens(accessToken, refreshToken)
+        set({ accessToken, refreshToken, isAuthenticated: true })
       },
 
       /**
@@ -155,28 +187,27 @@ export const useAuthStore = create<AuthStore>()(
        */
       initialize: async () => {
         const { accessToken } = get()
-        const storedToken = localStorage.getItem('access_token')
+        const storedToken = getStoredAccessToken()
 
         if (!accessToken && !storedToken) {
           set({ isInitializing: false })
           return
         }
 
-        // Sync localStorage token into store if needed
-        if (storedToken && !accessToken) {
-          set({ accessToken: storedToken })
-        }
-        if (localStorage.getItem('refresh_token')) {
-          set({ refreshToken: localStorage.getItem('refresh_token') })
-        }
+        // Prefer the freshest token — the Axios interceptor writes rotated
+        // tokens straight to storage, so storage can be ahead of the store.
+        const storedRefresh = getStoredRefreshToken()
+        set({
+          accessToken: storedToken ?? accessToken,
+          ...(storedRefresh ? { refreshToken: storedRefresh } : {}),
+        })
 
         try {
           const user = await authService.getCurrentUser()
           set({ user, isAuthenticated: true, isInitializing: false })
         } catch {
           // Token expired or invalid — clear everything
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
+          clearTokens()
           set({ ...initialState, isInitializing: false })
         }
       },
@@ -212,19 +243,10 @@ export const useUserRole = () => useAuthStore((s) => s.user?.role)
 
 // ── Utilities ─────────────────────────────────────────────────────────────
 
+/**
+ * Delegates to the shared, leak-safe normalizer so auth errors get the same
+ * treatment as the rest of the app (no stack traces / SQL / tokens in UI text).
+ */
 function extractErrorMessage(error: unknown): string {
-  if (!error || typeof error !== 'object') return 'An unknown error occurred'
-
-  // Axios error with backend ApiResponse
-  const axiosError = error as {
-    response?: { data?: { error?: { message?: string }; message?: string } }
-    message?: string
-  }
-
-  return (
-    axiosError.response?.data?.error?.message ??
-    axiosError.response?.data?.message ??
-    axiosError.message ??
-    'An unexpected error occurred'
-  )
+  return getErrorMessage(error)
 }

@@ -1,5 +1,6 @@
 package com.commerceinsight.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -13,12 +14,14 @@ import java.util.List;
 /**
  * CorsConfig — Cross-Origin Resource Sharing configuration.
  *
- * <p>Allows the React frontend (running on a different port in dev)
- * to make API calls to the Spring Boot backend.
+ * <p>Allows the configured frontend origins to call the API. Wildcard origins
+ * are explicitly rejected. All values come from {@code app.cors.*}.
  *
- * <p>In production, only the configured allowed origins are permitted.
- * Wildcard origins are explicitly prohibited.
+ * <p>Sprint 12A: {@code allowed-headers} and {@code allow-credentials} are now
+ * read from configuration (previously hard-coded and dead); origins are trimmed;
+ * a literal {@code *} origin aborts startup.
  */
+@Slf4j
 @Configuration
 public class CorsConfig {
 
@@ -28,39 +31,48 @@ public class CorsConfig {
     @Value("${app.cors.allowed-methods}")
     private String allowedMethodsRaw;
 
-    @Value("${app.cors.max-age}")
+    @Value("${app.cors.allowed-headers:Authorization,Content-Type,Accept,Origin,X-Requested-With,X-Request-Id}")
+    private String allowedHeadersRaw;
+
+    @Value("${app.cors.allow-credentials:false}")
+    private boolean allowCredentials;
+
+    @Value("${app.cors.max-age:3600}")
     private long maxAge;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Parse comma-separated origins
-        List<String> origins = Arrays.asList(allowedOriginsRaw.split(","));
+        List<String> origins = splitTrim(allowedOriginsRaw);
+        if (origins.contains("*")) {
+            throw new IllegalStateException(
+                    "app.cors.allowed-origins must not contain '*'. List explicit origins.");
+        }
         configuration.setAllowedOrigins(origins);
-
-        // HTTP methods
-        List<String> methods = Arrays.asList(allowedMethodsRaw.split(","));
-        configuration.setAllowedMethods(methods);
-
-        // Allow all headers (client may send Content-Type, Authorization, etc.)
-        configuration.setAllowedHeaders(List.of("*"));
-
-        // Expose response headers the client might need
+        configuration.setAllowedMethods(splitTrim(allowedMethodsRaw));
+        configuration.setAllowedHeaders(splitTrim(allowedHeadersRaw));
         configuration.setExposedHeaders(List.of(
                 "Authorization",
                 "Content-Disposition",
-                "X-Total-Count"
+                "X-Total-Count",
+                "X-Request-Id",
+                "Retry-After"
         ));
-
-        // Allow credentials (needed for refresh token in HttpOnly cookie, future)
-        configuration.setAllowCredentials(true);
-
-        // Cache preflight response for 1 hour
+        configuration.setAllowCredentials(allowCredentials);
         configuration.setMaxAge(maxAge);
+
+        log.info("CORS configured: origins={}, credentials={}", origins, allowCredentials);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", configuration);
         return source;
+    }
+
+    private static List<String> splitTrim(String raw) {
+        return Arrays.stream(raw.split(","))
+                .map(s -> s.trim())
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }

@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { productService } from '../services/productService'
 import type { ProductFilterParams, CreateProductRequest, UpdateProductRequest } from '@/types/product.types'
 
@@ -47,9 +48,8 @@ export function useCreateProduct() {
       qc.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() })
       toast.success('Product created successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to create product'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -64,9 +64,8 @@ export function useUpdateProduct() {
       qc.invalidateQueries({ queryKey: PRODUCT_KEYS.detail(id) })
       toast.success('Product updated successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update product'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -79,9 +78,8 @@ export function useDeleteProduct() {
       qc.invalidateQueries({ queryKey: PRODUCT_KEYS.lists() })
       toast.success('Product deleted successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to delete product'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }

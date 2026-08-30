@@ -7,6 +7,7 @@ import com.commerceinsight.auth.dto.request.RegisterRequest;
 import com.commerceinsight.auth.dto.response.AuthResponse;
 import com.commerceinsight.auth.mapper.AuthMapper;
 import com.commerceinsight.auth.service.AuthService;
+import com.commerceinsight.auth.service.LoginHistoryService;
 import com.commerceinsight.auth.service.RefreshTokenService;
 import com.commerceinsight.exception.BusinessRuleException;
 import com.commerceinsight.exception.DuplicateResourceException;
@@ -55,6 +56,7 @@ class AuthServiceTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private AuditLogService auditLogService;
+    @Mock private LoginHistoryService loginHistoryService;
 
     @InjectMocks
     private AuthService authService;
@@ -297,7 +299,7 @@ class AuthServiceTest {
                     .revoked(false)
                     .build();
 
-            given(refreshTokenService.validateAndRotate("valid-token")).willReturn(oldToken);
+            given(refreshTokenService.validateAndRotate(eq("valid-token"), any())).willReturn(oldToken);
             given(refreshTokenService.createRefreshTokenInFamily(any(), any()))
                     .willReturn(TEST_REFRESH_TOKEN);
             given(jwtTokenUtil.generateAccessToken(any(), any(), any(), any()))
@@ -317,7 +319,7 @@ class AuthServiceTest {
         @DisplayName("should propagate BusinessRuleException on invalid refresh token")
         void refresh_invalidToken_throwsException() {
             // Given
-            given(refreshTokenService.validateAndRotate("invalid"))
+            given(refreshTokenService.validateAndRotate(eq("invalid"), any()))
                     .willThrow(new BusinessRuleException(
                             com.commerceinsight.shared.exception.ErrorCode.REFRESH_TOKEN_INVALID,
                             "Invalid refresh token"));

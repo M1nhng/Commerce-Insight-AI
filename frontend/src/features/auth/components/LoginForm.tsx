@@ -38,12 +38,16 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     setFocus,
+    resetField,
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
   })
+
+  // Block a second submission while one is already in flight.
+  const busy = isLoading || isSubmitting
 
   // Focus email on mount
   useEffect(() => { setFocus('email') }, [setFocus])
@@ -55,11 +59,15 @@ export function LoginForm() {
   }, [])
 
   const onSubmit = async (values: LoginFormValues) => {
+    if (busy) return
     try {
       await login(values)
       toast.success('Welcome back!')
     } catch {
       // Error is displayed via the `error` state from useAuth
+    } finally {
+      // Never leave the password sitting in a form field.
+      resetField('password')
     }
   }
 
@@ -203,24 +211,24 @@ export function LoginForm() {
       {/* ── Submit Button ───────────────────────────────────────────── */}
       <button
         type="submit"
-        disabled={isLoading}
+        disabled={busy}
         className={cn(
           'flex w-full items-center justify-center gap-2 rounded-lg py-2.5',
           'text-body-md font-semibold text-white',
           'transition-all duration-200',
-          isLoading
+          busy
             ? 'cursor-not-allowed opacity-70'
             : 'hover:scale-[1.01] active:scale-[0.99]'
         )}
         style={{
-          background: isLoading
+          background: busy
             ? 'var(--accent-600)'
             : 'linear-gradient(135deg, var(--accent-600) 0%, var(--accent-500) 100%)',
-          boxShadow: isLoading ? 'none' : '0 4px 16px rgba(99, 102, 241, 0.4)',
+          boxShadow: busy ? 'none' : '0 4px 16px rgba(99, 102, 241, 0.4)',
         }}
-        aria-busy={isLoading}
+        aria-busy={busy}
       >
-        {isLoading ? (
+        {busy ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
             Signing in...
@@ -229,20 +237,6 @@ export function LoginForm() {
           'Sign in'
         )}
       </button>
-
-      {/* ── Demo credentials hint (dev only) ───────────────────────── */}
-      {import.meta.env.DEV && (
-        <p className="mt-4 text-center text-caption" style={{ color: 'var(--text-muted)' }}>
-          Default admin:{' '}
-          <span className="text-code" style={{ color: 'var(--accent-400)' }}>
-            admin@commerceinsight.ai
-          </span>
-          {' / '}
-          <span className="text-code" style={{ color: 'var(--accent-400)' }}>
-            Admin@123456
-          </span>
-        </p>
-      )}
     </form>
   )
 }

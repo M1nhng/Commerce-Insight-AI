@@ -4,6 +4,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
+import { getErrorMessage } from '@/lib/apiError'
 import { customerGroupService } from '../services/customerGroupService'
 import type {
   CustomerGroupFilterParams,
@@ -62,9 +63,8 @@ export function useCreateCustomerGroup() {
       qc.invalidateQueries({ queryKey: CUSTOMER_GROUP_KEYS.lists() })
       toast.success('Customer group created successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to create customer group'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -79,9 +79,8 @@ export function useUpdateCustomerGroup() {
       qc.invalidateQueries({ queryKey: CUSTOMER_GROUP_KEYS.detail(id) })
       toast.success('Customer group updated successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to update customer group'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
@@ -95,9 +94,8 @@ export function useDeleteCustomerGroup() {
       qc.invalidateQueries({ queryKey: [...CUSTOMER_GROUP_KEYS.all, 'options'] })
       toast.success('Customer group deleted successfully')
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.error?.message ?? 'Failed to delete customer group'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getErrorMessage(err))
     },
   })
 }
