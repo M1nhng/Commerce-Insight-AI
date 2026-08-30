@@ -59,19 +59,22 @@ app:
     trusted-proxies: ${TRUSTED_PROXIES:}
     request-id-header: X-Request-Id
 
-  # Rate limiting ON, but small windows so E2E can trip 429 in a few requests.
+  # Rate limiting stays ON (real security path). `login` / `refresh` are set
+  # high enough to survive a full serial Playwright run that logs in many times;
+  # the 429 E2E scenario deliberately targets the low-capacity `export` bucket
+  # instead. `import-upload` / `export` stay small so their 429 tests trip fast.
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     login:
-      capacity: ${RL_LOGIN_CAPACITY:4}
+      capacity: ${RL_LOGIN_CAPACITY:50}
       window-seconds: 60
       secondary-capacity: 0
       secondary-window-seconds: 0
     register:
-      capacity: 3
+      capacity: 10
       window-seconds: 3600
     refresh:
-      capacity: ${RL_REFRESH_CAPACITY:6}
+      capacity: ${RL_REFRESH_CAPACITY:50}
       window-seconds: 60
     import-upload:
       capacity: ${RL_IMPORT_CAPACITY:3}

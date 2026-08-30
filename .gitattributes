@@ -1,0 +1,11 @@
+# Keep POSIX shell wrappers/scripts LF so they stay valid inside Linux images
+# (backend/mvnw was committed CRLF → "./mvnw: not found" on Alpine).
+# Deliberately narrow: no repo-wide `* text=auto` renormalisation.
+mvnw            text eol=lf
+gradlew         text eol=lf
+*.sh            text eol=lf
+*.bash          text eol=lf
+
+# Windows batch stays CRLF.
+*.bat           text eol=crlf
+*.cmd           text eol=crlf

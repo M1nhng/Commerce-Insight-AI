@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { loginAs, readToken } from './helpers'
+import { loginAs, readToken, API_BASE } from './helpers'
 
 // 9.3 ROLE AUTHORIZATION ─────────────────────────────────────────────────────
 // Frontend guards are UI gating only; the backend stays authoritative.
@@ -43,12 +43,12 @@ test.describe('9.4 403 handling', () => {
     })
 
     // STAFF calling an ADMIN-only API (GET /users) → backend 403 ACCESS_DENIED.
-    const res = await page.evaluate(async () => {
-      const r = await fetch('/api/v1/users', {
+    const res = await page.evaluate(async (base) => {
+      const r = await fetch(`${base}/api/v1/users`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('access_token')}` },
       })
       return { status: r.status, body: await r.text() }
-    })
+    }, API_BASE)
 
     expect(res.status).toBe(403)
     expect(res.body).toContain('ACCESS_DENIED')
