@@ -1,6 +1,14 @@
 import { expect, type Page } from '@playwright/test'
 
 /**
+ * Backend origin as reached from the browser. The SPA is served by nginx on
+ * :5173 and has no /api proxy, so `fetch('/api/...')` inside page.evaluate would
+ * hit nginx (index.html), not the API. Always use `${API_BASE}/api/v1/...`.
+ * Matches VITE_API_BASE_URL baked into the E2E image.
+ */
+export const API_BASE = process.env.E2E_API_BASE ?? 'http://localhost:8080'
+
+/**
  * Deterministic RBAC test users. Seeded by
  * backend/src/main/resources/db/e2e/R__seed_e2e_users.sql (e2e profile only).
  * Overridable via env for CI secret management.
@@ -31,11 +39,27 @@ export const BOGUS_JWT =
 /** Log in through the real UI and land on an authenticated page. */
 export async function loginAs(page: Page, role: RoleName): Promise<void> {
   const { email, password } = USERS[role]
+  // Start from a clean session so re-login within one test/page works (the
+  // login page redirects straight to /dashboard if a session is still present).
+  await page.goto('/login')
+  await page.evaluate(() => {
+    try {
+      window.localStorage.clear()
+      window.sessionStorage.clear()
+    } catch {
+      /* ignore */
+    }
+  })
   await page.goto('/login')
   await page.locator('#email').fill(email)
   await page.locator('#password').fill(password)
   await page.getByRole('button', { name: /sign in/i }).click()
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 })
+}
+
+/** The page's main content heading (not the breadcrumb copy in the header). */
+export function pageHeading(page: Page, name: RegExp | string) {
+  return page.locator('#main-content').getByRole('heading', { name })
 }
 
 export async function readToken(page: Page, key: 'access_token' | 'refresh_token') {

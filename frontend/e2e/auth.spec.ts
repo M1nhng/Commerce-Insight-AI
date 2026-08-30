@@ -42,7 +42,13 @@ test.describe('9.1 Login', () => {
       if (/\/auth\/login$/.test(r.url()) && r.method() === 'POST') loginCalls += 1
     })
     const btn = page.getByRole('button', { name: /sign in/i })
-    await Promise.all([btn.click(), btn.click().catch(() => {})])
+    // Two rapid clicks: the button disables itself after the first submit, so
+    // the second is a no-op (and may hit a detached element once navigation
+    // starts — tolerated). Exactly one POST /auth/login must go out.
+    await Promise.allSettled([
+      btn.click({ timeout: 3000 }),
+      btn.click({ timeout: 3000 }),
+    ])
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 })
     expect(loginCalls).toBe(1)
   })
@@ -84,11 +90,22 @@ test.describe('9.7 Refresh failure', () => {
     await expect(page).toHaveURL(/\/login\?session=expired&redirect=/)
     expect(await readToken(page, 'access_token')).toBeNull()
     expect(await readToken(page, 'refresh_token')).toBeNull()
-    expect(await page.evaluate(() => window.localStorage.getItem('cia-auth'))).toBeNull()
+    // Zustand's persist middleware always keeps its key present; what matters is
+    // that the persisted session is cleared.
+    const persisted = await page.evaluate(() => window.localStorage.getItem('cia-auth'))
+    const state = persisted ? JSON.parse(persisted).state : {}
+    expect(state.isAuthenticated ?? false).toBe(false)
+    expect(state.user ?? null).toBeNull()
+    expect(state.accessToken ?? null).toBeNull()
+    expect(state.refreshToken ?? null).toBeNull()
 
-    // No refresh storm / redirect loop.
-    await page.waitForTimeout(1500)
-    expect(redirects).toBeLessThanOrEqual(1)
-    await expect(page.getByRole('heading', { name: /^Orders$/ })).toHaveCount(0)
+    // No refresh storm / redirect LOOP: the URL settles and stays put (a hard
+    // location.assign can surface as more than one frame-navigation event, but
+    // a loop would keep firing).
+    const urlAfter = page.url()
+    await page.waitForTimeout(2000)
+    expect(page.url()).toBe(urlAfter)
+    expect(redirects).toBeLessThanOrEqual(3)
+    await expect(page.locator('#main-content').getByRole('heading', { name: /^Orders$/ })).toHaveCount(0)
   })
 })

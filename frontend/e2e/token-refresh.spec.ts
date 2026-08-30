@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { loginAs, corruptAccessToken, readToken, countRequests } from './helpers'
+import {
+  loginAs,
+  corruptAccessToken,
+  readToken,
+  countRequests,
+  pageHeading,
+} from './helpers'
 
 // 9.5 401 → SINGLE REFRESH → RETRY ONCE (hits the real backend) ───────────────
 test.describe('9.5 401 → refresh', () => {
@@ -23,7 +29,7 @@ test.describe('9.5 401 → refresh', () => {
     expect(await readToken(page, 'refresh_token')).not.toBe(originalRefresh) // rotated
     await expect(page).not.toHaveURL(/\/login/)
     // The retried request succeeded — the products view rendered its table/empty state.
-    await expect(page.getByRole('heading', { name: /^Products$/ })).toBeVisible()
+    await expect(pageHeading(page, /^Products$/)).toBeVisible()
   })
 })
 

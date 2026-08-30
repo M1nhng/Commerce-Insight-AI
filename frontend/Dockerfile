@@ -9,6 +9,13 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Backend API base URL is baked in at build time (Vite inlines import.meta.env.*).
+# Override per environment:  docker build --build-arg VITE_API_BASE_URL=https://api.example.com
+# Not a secret — Vite variables are always public. Never put the MCP key or a
+# JWT secret here.
+ARG VITE_API_BASE_URL=http://localhost:8080
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 # Copy package files first (layer cache optimization)
 COPY package.json package-lock.json* ./
 

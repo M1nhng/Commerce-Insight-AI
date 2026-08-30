@@ -130,7 +130,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     // ── Route → group / identity ──────────────────────────────────────────
 
     private Group groupFor(HttpServletRequest request) {
-        String path = request.getServletPath();
+        String path = requestPath(request);
         String method = request.getMethod();
         if (HttpMethod.POST.matches(method)) {
             if (path.equals("/api/v1/auth/login")) return Group.LOGIN;
@@ -142,6 +142,21 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             return Group.EXPORT;
         }
         return null;
+    }
+
+    /**
+     * The request path relative to the context. Uses {@code getRequestURI()}
+     * (always populated) rather than {@code getServletPath()}, which is empty
+     * under MockMvc and can be empty for a root ("/") servlet mapping — that
+     * emptiness silently disabled this filter.
+     */
+    private static String requestPath(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        String ctx = request.getContextPath();
+        if (ctx != null && !ctx.isEmpty() && uri.startsWith(ctx)) {
+            uri = uri.substring(ctx.length());
+        }
+        return uri;
     }
 
     private String identityFor(Group group, HttpServletRequest request) {

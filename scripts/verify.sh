@@ -6,15 +6,20 @@
 # prints the exact commands for the parts that do. Nothing here fabricates a
 # result — each step reports its real exit status.
 #
-#   ./scripts/verify.sh              # local checks only
-#   ./scripts/verify.sh --with-e2e   # also run backend integration + Playwright
-#                                    # (needs Docker + a running stack)
+#   ./scripts/verify.sh              # local checks only (safe without Docker)
+#   ./scripts/verify.sh --e2e        # also run backend integration + Playwright
+#   ./scripts/verify.sh --with-e2e   # alias of --e2e
+#                                    # (--e2e needs Docker + builds the stack)
 # =============================================================================
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
 WITH_E2E=0
-[[ "${1:-}" == "--with-e2e" ]] && WITH_E2E=1
+case "${1:-}" in
+  --e2e|--with-e2e) WITH_E2E=1 ;;
+  "") ;;
+  *) echo "unknown flag: ${1}  (use --e2e)"; exit 2 ;;
+esac
 fail=0
 step() { echo; echo "── $* ──────────────────────────────────────────────"; }
 run()  { echo "\$ $*"; "$@"; local rc=$?; [[ $rc -ne 0 ]] && { echo "   ✗ exit $rc"; fail=1; } || echo "   ✓"; return $rc; }

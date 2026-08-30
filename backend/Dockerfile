@@ -13,8 +13,13 @@ COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
 
+# The repo currently commits mvnw with CRLF line endings; strip the CR so the
+# `#!/bin/sh` shebang is valid on Alpine (otherwise: "./mvnw: not found").
+# .gitattributes now enforces LF for future checkouts.
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
+
 # Download dependencies (cached layer if pom.xml doesn't change)
-RUN chmod +x mvnw && ./mvnw dependency:go-offline -B -q
+RUN ./mvnw dependency:go-offline -B -q
 
 # Copy source and build
 COPY src ./src

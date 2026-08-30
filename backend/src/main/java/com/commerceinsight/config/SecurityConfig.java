@@ -29,6 +29,7 @@ import org.springframework.security.web.header.writers.ContentSecurityPolicyHead
 import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 
 /**
  * SecurityConfig — Spring Security filter chain configuration.
@@ -102,7 +103,13 @@ public class SecurityConfig {
                 .httpStrictTransportSecurity(hsts -> hsts
                     .includeSubDomains(true)
                     .preload(true)
-                    .maxAgeInSeconds(31536000))
+                    .maxAgeInSeconds(31536000)
+                    // Emit on every response, not just request.isSecure(). TLS is
+                    // terminated at nginx, so the backend always sees plain HTTP
+                    // and would otherwise never send HSTS. A browser ignores the
+                    // header on a non-HTTPS hop (RFC 6797 §8.1) and honours it
+                    // once nginx forwards it over the real HTTPS connection.
+                    .requestMatcher(AnyRequestMatcher.INSTANCE))
                 .referrerPolicy(referrer -> referrer
                     .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
                 .permissionsPolicyHeader(pp -> pp.policy(

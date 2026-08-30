@@ -54,8 +54,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-
     private final UserRepository userRepository;
     private final RefreshTokenService refreshTokenService;
     private final JwtTokenUtil jwtTokenUtil;
@@ -64,6 +62,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final AuditLogService auditLogService;
     private final LoginHistoryService loginHistoryService;
+    private final LoginAttemptService loginAttemptService;
 
     // ── Register ─────────────────────────────────────────────────────────
 
@@ -185,8 +184,10 @@ public class AuthService {
             return buildAuthResponse(user, true);
 
         } catch (BadCredentialsException ex) {
-            // Track failed attempts and potentially lock account
-            handleFailedLogin(user);
+            // Persist the failed-attempt counter / lockout in its OWN transaction —
+            // the rethrow below rolls THIS transaction back, so an in-tx write here
+            // would be lost and the account would never actually lock.
+            loginAttemptService.recordFailure(user.getId());
             auditLogService.log(user.getId(), AuditLogService.ACTION_USER_LOGIN_FAILED, ipAddress, userAgent);
             loginHistoryService.record(email, user.getId(), ipAddress, userAgent,
                     false, LoginHistoryService.REASON_INVALID_CREDENTIALS);
@@ -309,12 +310,4 @@ public class AuthService {
                 .build();
     }
 
-    private void handleFailedLogin(User user) {
-        user.incrementFailedAttempts();
-        if (user.getFailedAttempts() >= MAX_FAILED_ATTEMPTS) {
-            user.setLocked(true);
-            log.warn("Account locked after {} failed attempts: {}", MAX_FAILED_ATTEMPTS, user.getEmail());
-        }
-        userRepository.save(user);
-    }
 }

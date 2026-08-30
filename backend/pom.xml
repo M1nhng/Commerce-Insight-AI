@@ -218,4 +218,49 @@
         </plugins>
     </build>
 
+    <!-- ── Profiles ── -->
+    <profiles>
+        <!--
+          OWASP Dependency-Check. OPT-IN only (mvn verify -Powasp) and run on a
+          weekly schedule (.github/workflows/dependency-audit.yml) — NOT in the
+          blocking CI pipeline, because it downloads the multi-hundred-MB NVD
+          data set and the NVD API rate-limits callers without an API key.
+          Provide NVD_API_KEY (env / -Dnvd.api.key=) to make it reliable.
+        -->
+        <profile>
+            <id>owasp</id>
+            <properties>
+                <dependency-check-maven.version>10.0.4</dependency-check-maven.version>
+                <!-- Advisory: this profile never fails the build on its own. -->
+                <nvd.api.key/>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.owasp</groupId>
+                        <artifactId>dependency-check-maven</artifactId>
+                        <version>${dependency-check-maven.version}</version>
+                        <configuration>
+                            <failBuildOnCVSS>11</failBuildOnCVSS>
+                            <nvdApiKey>${nvd.api.key}</nvdApiKey>
+                            <formats>
+                                <format>HTML</format>
+                                <format>JSON</format>
+                            </formats>
+                            <skipProvidedScope>true</skipProvidedScope>
+                            <skipTestScope>true</skipTestScope>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>

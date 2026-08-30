@@ -7,6 +7,7 @@ import com.commerceinsight.auth.dto.request.RegisterRequest;
 import com.commerceinsight.auth.dto.response.AuthResponse;
 import com.commerceinsight.auth.mapper.AuthMapper;
 import com.commerceinsight.auth.service.AuthService;
+import com.commerceinsight.auth.service.LoginAttemptService;
 import com.commerceinsight.auth.service.LoginHistoryService;
 import com.commerceinsight.auth.service.RefreshTokenService;
 import com.commerceinsight.exception.BusinessRuleException;
@@ -57,6 +58,7 @@ class AuthServiceTest {
     @Mock private AuthenticationManager authenticationManager;
     @Mock private AuditLogService auditLogService;
     @Mock private LoginHistoryService loginHistoryService;
+    @Mock private LoginAttemptService loginAttemptService;
 
     @InjectMocks
     private AuthService authService;
@@ -246,39 +248,21 @@ class AuthServiceTest {
         }
 
         @Test
-        @DisplayName("should increment failed attempts on bad credentials")
-        void login_badCredentials_incrementsFailedAttempts() {
+        @DisplayName("should delegate failed-attempt bookkeeping to LoginAttemptService (own tx)")
+        void login_badCredentials_delegatesToLoginAttemptService() {
             // Given
             LoginRequest request = new LoginRequest("test@example.com", "wrongPassword");
             given(userRepository.findByEmail("test@example.com")).willReturn(Optional.of(testUser));
             given(authenticationManager.authenticate(any()))
                     .willThrow(new BadCredentialsException("Bad credentials"));
-            given(userRepository.save(any(User.class))).willReturn(testUser);
 
             // When / Then
             assertThatThrownBy(() -> authService.login(request))
                     .isInstanceOf(BadCredentialsException.class);
 
-            assertThat(testUser.getFailedAttempts()).isEqualTo(1);
-        }
-
-        @Test
-        @DisplayName("should lock account after 5 consecutive failed attempts")
-        void login_fiveFailedAttempts_locksAccount() {
-            // Given
-            testUser.setFailedAttempts(4); // One more attempt will lock it
-            LoginRequest request = new LoginRequest("test@example.com", "wrongPassword");
-            given(userRepository.findByEmail("test@example.com")).willReturn(Optional.of(testUser));
-            given(authenticationManager.authenticate(any()))
-                    .willThrow(new BadCredentialsException("Bad credentials"));
-            given(userRepository.save(any(User.class))).willReturn(testUser);
-
-            // When / Then
-            assertThatThrownBy(() -> authService.login(request))
-                    .isInstanceOf(BadCredentialsException.class);
-
-            assertThat(testUser.isLocked()).isTrue();
-            assertThat(testUser.getFailedAttempts()).isEqualTo(5);
+            // The increment/lock now happens in a REQUIRES_NEW transaction so it
+            // survives the rethrow — AuthService only needs to delegate.
+            then(loginAttemptService).should().recordFailure(testUser.getId());
         }
     }
 
