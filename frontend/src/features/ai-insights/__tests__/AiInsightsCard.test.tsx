@@ -77,6 +77,7 @@ describe('AiInsightsCard', () => {
     hookState = state({
       isSuccess: true,
       data: resp({
+        generatedAt: new Date().toISOString(),
         summary: 'Revenue grew this period.',
         insights: [{ type: 'POSITIVE', title: 'Revenue up', description: 'Rose to 1,000.', metric: '1,000', severity: 'HIGH' }],
         recommendations: [{ title: 'Restock', description: 'Restock low items.', priority: 'MEDIUM' }],
@@ -87,6 +88,8 @@ describe('AiInsightsCard', () => {
     expect(screen.getByText('Revenue up')).toBeInTheDocument()
     expect(screen.getByText('HIGH')).toBeInTheDocument()
     expect(screen.getByText('Restock')).toBeInTheDocument()
+    // A fresh result reads "Generated just now"; the AI-suggestion disclaimer stays.
+    expect(screen.getByText(/generated just now/i)).toBeInTheDocument()
     expect(screen.getByText(/recommendations are AI suggestions/i)).toBeInTheDocument()
   })
 

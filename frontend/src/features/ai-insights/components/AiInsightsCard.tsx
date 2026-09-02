@@ -24,6 +24,13 @@ interface Props {
   range: AnalyticsDateRange
 }
 
+/** "just now" for a fresh result, otherwise the localized timestamp. */
+function formatGeneratedAt(iso: string): string {
+  const t = new Date(iso).getTime()
+  if (Number.isFinite(t) && Date.now() - t < 120_000) return 'just now'
+  return Number.isFinite(t) ? new Date(t).toLocaleString() : 'recently'
+}
+
 const TYPE_META: Record<AiInsightType, { icon: React.ElementType; color: string }> = {
   POSITIVE:    { icon: TrendingUp,   color: '#34d399' },
   NEGATIVE:    { icon: TrendingDown, color: '#f87171' },
@@ -224,7 +231,7 @@ export function AiInsightsCard({ range }: Props) {
           )}
 
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Generated {new Date(data.generatedAt).toLocaleString()} · recommendations are AI suggestions, not observed facts
+            Generated {formatGeneratedAt(data.generatedAt)} · recommendations are AI suggestions, not observed facts
           </p>
         </div>
       )}

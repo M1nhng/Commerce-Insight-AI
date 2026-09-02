@@ -45,8 +45,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
             SELECT COALESCE(SUM(o.total), 0)
             FROM orders o
             WHERE o.status IN ('CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED')
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             """, nativeQuery = true)
     java.math.BigDecimal sumRevenue(
             @Param("dateFrom") Instant dateFrom,
@@ -58,8 +58,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
     @Query(value = """
             SELECT COUNT(*)
             FROM orders o
-            WHERE (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+            WHERE (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             """, nativeQuery = true)
     long countAllOrders(
             @Param("dateFrom") Instant dateFrom,
@@ -73,8 +73,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
             SELECT COUNT(DISTINCT o.customer_id)
             FROM orders o
             WHERE o.customer_id IS NOT NULL
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             """, nativeQuery = true)
     long countDistinctCustomers(
             @Param("dateFrom") Instant dateFrom,
@@ -89,8 +89,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             WHERE o.status IN ('CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED')
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             """, nativeQuery = true)
     long sumProductsSold(
             @Param("dateFrom") Instant dateFrom,
@@ -103,8 +103,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
             SELECT COUNT(*)
             FROM orders o
             WHERE o.status = 'CANCELLED'
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             """, nativeQuery = true)
     long countCancelledOrders(
             @Param("dateFrom") Instant dateFrom,
@@ -122,8 +122,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
                    COUNT(*)                                                                    AS orders
             FROM orders o
             WHERE o.status IN ('CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED')
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             GROUP BY DATE_TRUNC('day', o.created_at AT TIME ZONE 'UTC')
             ORDER BY DATE_TRUNC('day', o.created_at AT TIME ZONE 'UTC')
             """, nativeQuery = true)
@@ -140,8 +140,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
                    COUNT(*)                                                                      AS orders
             FROM orders o
             WHERE o.status IN ('CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED')
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             GROUP BY DATE_TRUNC('week', o.created_at AT TIME ZONE 'UTC')
             ORDER BY DATE_TRUNC('week', o.created_at AT TIME ZONE 'UTC')
             """, nativeQuery = true)
@@ -158,8 +158,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
                    COUNT(*)                                                                   AS orders
             FROM orders o
             WHERE o.status IN ('CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED')
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             GROUP BY DATE_TRUNC('month', o.created_at AT TIME ZONE 'UTC')
             ORDER BY DATE_TRUNC('month', o.created_at AT TIME ZONE 'UTC')
             """, nativeQuery = true)
@@ -176,8 +176,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
     @Query(value = """
             SELECT o.status AS status, COUNT(*) AS orderCount
             FROM orders o
-            WHERE (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+            WHERE (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             GROUP BY o.status
             """, nativeQuery = true)
     List<StatusCountRow> countByStatus(
@@ -201,8 +201,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             WHERE o.status IN ('CONFIRMED','PROCESSING','SHIPPED','DELIVERED','COMPLETED')
-              AND (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             GROUP BY oi.product_id, oi.sku_snapshot, oi.product_name_snapshot
             ORDER BY SUM(oi.subtotal) DESC
             LIMIT :limitVal
@@ -226,8 +226,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
                     WHERE all_o.customer_id = sub.customer_id) AS totalOrdersAllTime
             FROM orders sub
             WHERE sub.customer_id IS NOT NULL
-              AND (:dateFrom IS NULL OR sub.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR sub.created_at <= :dateTo)
+              AND (CAST(:dateFrom AS timestamptz) IS NULL OR sub.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR sub.created_at <= CAST(:dateTo AS timestamptz))
             GROUP BY sub.customer_id
             """, nativeQuery = true)
     List<CustomerOrderCountRow> customerOrderCounts(
@@ -246,8 +246,8 @@ public interface AnalyticsRepository extends Repository<Order, UUID> {
                    SUM(p.amount) AS amount
             FROM payments p
             JOIN orders o ON p.order_id = o.id
-            WHERE (:dateFrom IS NULL OR o.created_at >= :dateFrom)
-              AND (:dateTo   IS NULL OR o.created_at <= :dateTo)
+            WHERE (CAST(:dateFrom AS timestamptz) IS NULL OR o.created_at >= CAST(:dateFrom AS timestamptz))
+              AND (CAST(:dateTo AS timestamptz)   IS NULL OR o.created_at <= CAST(:dateTo AS timestamptz))
             GROUP BY p.method
             ORDER BY SUM(p.amount) DESC
             """, nativeQuery = true)

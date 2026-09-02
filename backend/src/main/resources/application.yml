@@ -150,11 +150,16 @@ app:
   # committed default — api-key is empty until you supply OPENAI_API_KEY.
   ai:
     enabled: ${AI_INSIGHTS_ENABLED:false}
-    provider: ${AI_PROVIDER:openai}          # openai | ollama | any OpenAI-compatible gateway
+    provider: ${AI_PROVIDER:openai}          # openai | ollama | anthropic | any OpenAI-compatible gateway
     model: ${AI_MODEL:gpt-4o-mini}
-    api-key: ${OPENAI_API_KEY:}
-    base-url: ${AI_BASE_URL:https://api.openai.com/v1}
+    # api-key: OpenAI/gateway key for the openai/ollama family, or the Anthropic
+    # key when provider=anthropic. Empty for a keyless local Ollama.
+    api-key: ${AI_API_KEY:${OPENAI_API_KEY:${ANTHROPIC_API_KEY:}}}
+    base-url: ${AI_BASE_URL:https://api.openai.com/v1}          # OpenAI-compatible chat URL
+    anthropic-base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+    anthropic-version: ${ANTHROPIC_VERSION:2023-06-01}
     timeout-ms: ${AI_TIMEOUT_MS:20000}
+    connect-timeout-ms: ${AI_CONNECT_TIMEOUT_MS:5000}
     max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:900}
     temperature: ${AI_TEMPERATURE:0.2}
     max-range-days: 365
