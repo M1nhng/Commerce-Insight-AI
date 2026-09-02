@@ -134,4 +134,25 @@ describe('AiInsightsCard', () => {
     expect(screen.queryByText(/org\.springframework/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/Exception/)).not.toBeInTheDocument()
   })
+
+  it('XSS: malicious AI text is rendered as inert text, never as HTML', () => {
+    const payload = '<script>alert(1)</script><img src=x onerror=alert(2)>'
+    hookState = state({
+      isSuccess: true,
+      data: resp({
+        generatedAt: new Date().toISOString(),
+        summary: `Revenue ${payload} grew`,
+        insights: [{ type: 'WARNING', title: payload, description: payload, metric: payload, severity: 'HIGH' }],
+        recommendations: [{ title: payload, description: payload, priority: 'HIGH' }],
+      }),
+    })
+    const { container } = render(<AiInsightsCard range={RANGE} />)
+
+    // The payload appears as literal text content...
+    expect(screen.getAllByText(new RegExp('<script>alert\\(1\\)</script>')).length).toBeGreaterThan(0)
+    // ...and NOT as live DOM: no <script>, no <img> injected from the AI string.
+    expect(container.querySelector('script')).toBeNull()
+    expect(container.querySelector('img[onerror]')).toBeNull()
+    expect(container.innerHTML).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
+  })
 })

@@ -80,8 +80,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/refresh").permitAll()
 
-                // Actuator health (monitoring)
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                // Actuator: health/info are public for orchestrator probes;
+                // everything else exposed (e.g. metrics) is ADMIN-only and never public.
+                .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                .requestMatchers("/actuator/**").hasRole("ADMIN")
 
                 // Swagger UI + OpenAPI (springdoc disables these entirely in prod)
                 .requestMatchers(

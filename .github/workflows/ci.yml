@@ -83,6 +83,18 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+      # Sprint 15: JaCoCo coverage (report only — never a build gate).
+      - name: Upload JaCoCo coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jacoco-coverage
+          path: |
+            backend/target/site/jacoco/
+            backend/target/jacoco.exec
+          if-no-files-found: ignore
+          retention-days: 7
+
   # ── Frontend: type-check + unit tests + build ───────────────────────────
   frontend:
     name: Frontend (Node ${{ '22' }})

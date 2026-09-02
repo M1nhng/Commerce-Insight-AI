@@ -215,6 +215,30 @@
                     </annotationProcessorPaths>
                 </configuration>
             </plugin>
+
+            <!-- Sprint 15: code coverage. Report only — no build-failure gate.
+                 mvn -o test        → target/jacoco.exec
+                 mvn -o jacoco:report → target/site/jacoco/index.html -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <id>jacoco-prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
