@@ -18,10 +18,11 @@
  * - sidebarCollapsed: desktop collapse (persisted to localStorage)
  * - mobileOpen: mobile drawer open state
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
+import { AppLoader } from '@/components/ui/AppLoader'
 
 const SIDEBAR_STATE_KEY = 'cia-sidebar-collapsed'
 
@@ -72,7 +73,10 @@ export function AppShell() {
         >
           {/* Max content width per design spec §7.3 */}
           <div className="mx-auto w-full max-w-[1440px]">
-            <Outlet />
+            {/* Sprint 14: single Suspense boundary for all route-split pages. */}
+            <Suspense fallback={<AppLoader />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>

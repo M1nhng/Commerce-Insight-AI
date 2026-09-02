@@ -1,5 +1,6 @@
 package com.commerceinsight.exception;
 
+import com.commerceinsight.analytics.ai.AiAnalyticsException;
 import com.commerceinsight.export.exception.ExportException;
 import com.commerceinsight.shared.dto.ApiResponse;
 import com.commerceinsight.shared.dto.ErrorResponse;
@@ -94,6 +95,20 @@ public class GlobalExceptionHandler {
         } else {
             log.warn("Export request rejected at {}: {}", request.getRequestURI(), ex.getMessage());
         }
+        return ResponseEntity.status(ex.getStatus())
+                .body(ApiResponse.error(ErrorResponse.of(ex.getErrorCode().name(), ex.getMessage())));
+    }
+
+    /**
+     * AI-insights request-level problems (invalid / oversized date range).
+     * Carries its own {@link ErrorCode} + {@link HttpStatus}, same style as
+     * {@link ExportException}. Provider failures never reach here — they are
+     * handled inside the service and returned as an {@code available:false} 200.
+     */
+    @ExceptionHandler(AiAnalyticsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAiAnalytics(
+            AiAnalyticsException ex, HttpServletRequest request) {
+        log.debug("AI analytics request rejected at {}: {}", request.getRequestURI(), ex.getMessage());
         return ResponseEntity.status(ex.getStatus())
                 .body(ApiResponse.error(ErrorResponse.of(ex.getErrorCode().name(), ex.getMessage())));
     }

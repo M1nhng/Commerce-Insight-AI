@@ -19,6 +19,7 @@ import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -317,13 +318,12 @@ class CustomerControllerIntegrationTest {
     }
 
     @Test @Order(41) @DisplayName("POST /customers/{id}/addresses — second default SHIPPING clears first")
-    @Disabled("""
-            SPRINT_13A: incomplete pre-existing test. Its final step GETs a single address by id \
-            and asserts 404, but that route returns 405 (single-address GET not implemented) — the \
-            in-code comment already flags the assertion as a placeholder ('verify it still exists \
-            but via address list'). Non-security; not a 13A regression. \
-            Tracked in docs/SPRINT_13A_PRODUCTION_READINESS.md §Known Limitations.""")
     void addAddress_secondDefault_clearsFirst() throws Exception {
+        // Sprint 14: was @Disabled — the final step GET-by-address-id hits a route
+        // that only supports PUT/DELETE/PATCH (→ 405), yet asserted 404. There is
+        // no single-address GET; verify the "only one default per type" rule via
+        // the address LIST endpoint instead (which is what the old comment asked
+        // for). Same intent, correct contract.
         CreateAddressRequest request = new CreateAddressRequest(
                 AddressType.SHIPPING, "Jane Smith", null,
                 "456 Second Street", null, "District 2", "Hanoi", "VN", true);
@@ -335,10 +335,29 @@ class CustomerControllerIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.isDefault").value(true));
 
-        // First address should no longer be default — verify via GET
-        mockMvc.perform(get("/api/v1/customers/" + createdCustomerId + "/addresses/" + createdAddressId)
+        // The first SHIPPING address must no longer be the default.
+        MvcResult listResult = mockMvc.perform(get("/api/v1/customers/" + createdCustomerId + "/addresses")
                         .header("Authorization", "Bearer " + adminToken))
-                .andExpect(status().isNotFound()); // verify it still exists but via address list
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andReturn();
+
+        Map<String, Object> listBody = objectMapper.readValue(
+                listResult.getResponse().getContentAsString(), new TypeReference<>() {});
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> addresses = (List<Map<String, Object>>) listBody.get("data");
+
+        Map<String, Object> firstAddress = addresses.stream()
+                .filter(a -> createdAddressId.equals(String.valueOf(a.get("id"))))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("first address " + createdAddressId + " missing from list"));
+        assertThat(firstAddress.get("isDefault")).isEqualTo(false);
+
+        long defaultShipping = addresses.stream()
+                .filter(a -> "SHIPPING".equals(String.valueOf(a.get("type"))))
+                .filter(a -> Boolean.TRUE.equals(a.get("isDefault")))
+                .count();
+        assertThat(defaultShipping).isEqualTo(1);
     }
 
     @Test @Order(42) @DisplayName("GET /customers/{id}/addresses — 200 OK list")

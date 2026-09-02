@@ -153,16 +153,36 @@ class OrderControllerIntegrationTest {
 
     @Test
     @org.junit.jupiter.api.Order(30)
-    @Disabled("""
-            SPRINT_13A: pre-existing defect surfaced by the first-ever integration run. \
-            An authenticated GET /api/v1/orders/{unknown-uuid} returns 500 instead of a \
-            404 ResourceNotFoundException envelope. Non-security, order-module scoped; \
-            not a 13A regression. Tracked in docs/SPRINT_13A_PRODUCTION_READINESS.md §Known Limitations.""")
-    @DisplayName("GET /orders/{id} — 404 when not found")
+    @DisplayName("GET /orders/{id} — 404 with a safe envelope when not found")
     void getOrderById_notFound_returns404() throws Exception {
-        mockMvc.perform(get("/api/v1/orders/00000000-0000-0000-0000-000000000000")
+        // Sprint 14: was @Disabled — findByIdWithDetails fetch-joined 3 List bags
+        // → MultipleBagFetchException → 500. Now one bag only; the not-found path
+        // reaches ResourceNotFoundException(ORDER_NOT_FOUND) → 404 envelope.
+        MvcResult result = mockMvc.perform(get("/api/v1/orders/00000000-0000-0000-0000-000000000000")
                         .header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("ORDER_NOT_FOUND"))
+                .andExpect(jsonPath("$.error.message").exists())
+                .andReturn();
+
+        // No stack trace / internal details leak to the client.
+        String body = result.getResponse().getContentAsString();
+        assertThat(body)
+                .doesNotContain("Exception")
+                .doesNotContain("org.hibernate")
+                .doesNotContain("org.springframework")
+                .doesNotContain("MultipleBagFetch")
+                .doesNotContain("\tat ");
+    }
+
+    @Test
+    @org.junit.jupiter.api.Order(31)
+    @DisplayName("GET /orders/{id} — 400 for a malformed id")
+    void getOrderById_malformedId_returns400() throws Exception {
+        mockMvc.perform(get("/api/v1/orders/not-a-uuid")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
 

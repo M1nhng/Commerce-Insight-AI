@@ -1,35 +1,169 @@
 # =============================================================================
 # CD Pipeline — Commerce Insight AI
-# Triggers on push to main branch only (after CI passes).
 # =============================================================================
-# NOTE: This is a placeholder. Finalize when deployment target is decided.
-#       See docs/13_DEVOPS.md for deployment strategy.
+# Runs ONLY after the CI workflow has completed successfully on `main`
+# (workflow_run gate), or on a manual dispatch.
+#
+#   build-images : build the 3 production images and push them to GHCR
+#                  (ghcr.io/<owner>/<repo>/{backend,frontend,mcp-server}).
+#                  Uses the built-in GITHUB_TOKEN — no extra credentials.
+#   deploy       : release the pushed images to a running environment.
+#                  This step is a guarded skeleton: it executes only when the
+#                  DEPLOY_* repository secrets are configured. Until a concrete
+#                  host/orchestrator is chosen it self-skips with a clear
+#                  message (see docs/deployment/SPRINT_14_CICD.md).
+#
+# Security:
+#   * production runs with SPRING_PROFILES_ACTIVE=prod — never `demo`.
+#   * the demo dataset (db/demo/**) is NOT on the prod Flyway path and is
+#     never seeded here.
+#   * no secret value is hard-coded or echoed; all come from GitHub Secrets.
+#   * deploy is pinned to `main` + the `production` environment (add required
+#     reviewers / branch protection on that environment in repo settings).
 # =============================================================================
 
 name: CD
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "Why are you deploying manually?"
+        required: false
+        default: "manual dispatch"
+
+concurrency:
+  group: cd-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
 
 jobs:
+  # ── Gate: only proceed when the triggering CI run passed ────────────────
+  guard:
+    name: Verify CI success
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Report trigger
+        run: |
+          echo "Trigger: ${{ github.event_name }}"
+          echo "Head SHA: ${{ github.event.workflow_run.head_sha || github.sha }}"
 
-  # ── Deploy (Placeholder) ───────────────────────────────────────────────────
+  # ── Build + push the 3 production images to GHCR ───────────────────────
+  build-images:
+    name: Build & push images (GHCR)
+    runs-on: ubuntu-latest
+    needs: guard
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: ./backend
+          - name: frontend
+            context: ./frontend
+          - name: mcp-server
+            context: ./mcp-server
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive lowercase image name
+        id: img
+        run: echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.repo }}/${{ matrix.name }}:latest
+            ${{ env.REGISTRY }}/${{ steps.img.outputs.repo }}/${{ matrix.name }}:${{ github.event.workflow_run.head_sha || github.sha }}
+          # Public Vite var only. Set repo/environment Variable VITE_API_BASE_URL
+          # to the real API origin; falls back to a placeholder otherwise.
+          build-args: |
+            VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL || 'https://api.example.com' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Release to the production environment (guarded skeleton) ───────────
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: []  # TODO: Add 'ci' job as dependency when workflow_call is set up
+    needs: build-images
     environment: production
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy
+      - name: Check deployment target is configured
+        id: target
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
         run: |
-          echo "TODO: Implement deployment steps."
-          echo "Options:"
-          echo "  - Docker build & push to registry"
-          echo "  - SSH deploy to VPS"
-          echo "  - Deploy to cloud provider (Railway, Render, AWS, etc.)"
-          echo "See docs/13_DEVOPS.md for the deployment plan."
+          if [ -n "$DEPLOY_HOST" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: No deployment target — skip
+        if: steps.target.outputs.configured == 'false'
+        run: |
+          echo "::notice::CD build-images stage published images to GHCR."
+          echo "::notice::deploy step skipped — no DEPLOY_SSH_HOST secret set."
+          echo "To enable server delivery, configure these repository secrets:"
+          echo "  DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_KEY"
+          echo "and provide a production compose overlay + env on the host"
+          echo "(SPRING_PROFILES_ACTIVE=prod, SPRING_DATASOURCE_URL, JWT_SECRET,"
+          echo " MCP_API_KEY, CORS_ALLOWED_ORIGINS — see application-prod.yml)."
+          echo "See docs/deployment/SPRINT_14_CICD.md."
+
+      - name: Checkout
+        if: steps.target.outputs.configured == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Deploy over SSH
+        if: steps.target.outputs.configured == 'true'
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_SSH_HOST }}
+          username: ${{ secrets.DEPLOY_SSH_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          # The host holds docker-compose.yml + a production overlay and a .env
+          # with SPRING_PROFILES_ACTIVE=prod and all required secrets. This only
+          # pulls the freshly-built images and rolls the stack forward.
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            export IMAGE_TAG="${{ github.event.workflow_run.head_sha || github.sha }}"
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
+
+      - name: Smoke check
+        if: steps.target.outputs.configured == 'true'
+        run: |
+          echo "Deployment dispatched for tag ${{ github.event.workflow_run.head_sha || github.sha }}."
+          echo "Verify externally: GET /actuator/health should report {\"status\":\"UP\"}."

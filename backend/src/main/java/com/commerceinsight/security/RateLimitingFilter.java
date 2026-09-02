@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * No Redis; single-instance scope.
  *
  * <p>Keyed by resolved client IP for the auth routes, and by authenticated
- * principal (falling back to IP) for import/export. Limits come from
+ * principal (falling back to IP) for import / export / ai-insights. Limits come from
  * {@link RateLimitProperties} ({@code app.rate-limit.*}). Exceeded → HTTP 429
  * with the standard error envelope ({@code RATE_LIMIT_EXCEEDED}) and a
  * {@code Retry-After} header. Disabled when {@code app.rate-limit.enabled=false}
@@ -49,7 +49,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
 
-    private enum Group { LOGIN, REGISTER, REFRESH, IMPORT, EXPORT }
+    private enum Group { LOGIN, REGISTER, REFRESH, IMPORT, EXPORT, AI_INSIGHTS }
 
     private final RateLimitProperties props;
     private final ObjectMapper objectMapper;
@@ -124,6 +124,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             case REFRESH -> props.getRefresh();
             case IMPORT -> props.getImportUpload();
             case EXPORT -> props.getExport();
+            case AI_INSIGHTS -> props.getAiInsights();
         };
     }
 
@@ -137,6 +138,8 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             if (path.equals("/api/v1/auth/register")) return Group.REGISTER;
             if (path.equals("/api/v1/auth/refresh")) return Group.REFRESH;
             if (path.startsWith("/api/v1/import/")) return Group.IMPORT;
+            if (path.equals("/api/v1/analytics/ai-insights")
+                    || path.startsWith("/api/v1/analytics/ai-insights/")) return Group.AI_INSIGHTS;
         }
         if (HttpMethod.GET.matches(method) && path.startsWith("/api/v1/export/")) {
             return Group.EXPORT;
@@ -160,7 +163,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     }
 
     private String identityFor(Group group, HttpServletRequest request) {
-        if (group == Group.IMPORT || group == Group.EXPORT) {
+        if (group == Group.IMPORT || group == Group.EXPORT || group == Group.AI_INSIGHTS) {
             String principal = currentPrincipal();
             if (principal != null) {
                 return "user:" + principal;

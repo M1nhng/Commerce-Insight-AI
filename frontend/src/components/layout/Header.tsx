@@ -14,6 +14,7 @@ import { UserAvatarMenu } from '@/features/auth/components/UserAvatarMenu'
 // ── Route label map ──────────────────────────────────────────────────────
 
 const ROUTE_LABELS: Record<string, string> = {
+  '/':           'Dashboard',
   '/dashboard':  'Dashboard',
   '/products':   'Products',
   '/categories': 'Categories',

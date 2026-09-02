@@ -26,6 +26,8 @@ public class RateLimitProperties {
     private final Rule refresh = new Rule(30, 60, 0, 0);
     private final Rule importUpload = new Rule(10, 60, 0, 0);
     private final Rule export = new Rule(10, 60, 0, 0);
+    /** AI insights generation — expensive LLM call, kept deliberately low. */
+    private final Rule aiInsights = new Rule(10, 3600, 0, 0);
 
     /**
      * A rate rule: {@code capacity} tokens per {@code windowSeconds}, with an
