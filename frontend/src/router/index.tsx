@@ -1,28 +1,81 @@
 /**
  * router/index.tsx — Application Router Definition
+ *
+ * Sprint 14: page-level components are route-split with React.lazy so the initial
+ * JS bundle only carries the shell (router, guards, AppShell, providers, auth
+ * store) + the Login page. Every authenticated page is fetched on demand and
+ * rendered inside a single <Suspense> boundary in AppShell (fallback: AppLoader).
+ *
+ * NOT lazied (must be present to bootstrap / gate auth):
+ *   ProtectedRoute, RoleGuard, AppShell, LoginPage, providers, auth store.
+ * Lazy loading never bypasses auth — ProtectedRoute/RoleGuard still resolve
+ * before the lazy element mounts.
  */
+import { lazy } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleGuard } from './RoleGuard'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/features/auth/pages/LoginPage'
-import { ProfilePage } from '@/features/auth/pages/ProfilePage'
-import { DashboardPlaceholder } from '@/features/dashboard/DashboardPlaceholder'
-import { ProductsPage } from '@/features/products/pages/ProductsPage'
-import { CategoriesPage } from '@/features/products/pages/CategoriesPage'
-import { InventoryPage } from '@/features/inventory/pages/InventoryPage'
-import { WarehousePage } from '@/features/inventory/pages/WarehousePage'
-import { CustomersPage }      from '@/features/customers/pages/CustomersPage'
-import { CreateCustomerPage } from '@/features/customers/pages/CreateCustomerPage'
-import { EditCustomerPage }   from '@/features/customers/pages/EditCustomerPage'
-import { CustomerDetailPage } from '@/features/customers/pages/CustomerDetailPage'
-import { CustomerGroupsPage } from '@/features/customers/pages/CustomerGroupsPage'
-import { OrdersPage }         from '@/features/orders/pages/OrdersPage'
-import { CreateOrderPage }    from '@/features/orders/pages/CreateOrderPage'
-import { OrderDetailPage }    from '@/features/orders/pages/OrderDetailPage'
-import { AnalyticsPage }      from '@/features/analytics'
-import { ImportPage, ImportJobsPage, ImportJobDetailPage } from '@/features/import'
-import { ExportPage }         from '@/features/export'
+
+// ── Lazily-loaded pages (named exports → default for React.lazy) ─────────
+const ProfilePage = lazy(() =>
+  import('@/features/auth/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
+)
+const DashboardPlaceholder = lazy(() =>
+  import('@/features/dashboard/DashboardPlaceholder').then((m) => ({ default: m.DashboardPlaceholder })),
+)
+const ProductsPage = lazy(() =>
+  import('@/features/products/pages/ProductsPage').then((m) => ({ default: m.ProductsPage })),
+)
+const CategoriesPage = lazy(() =>
+  import('@/features/products/pages/CategoriesPage').then((m) => ({ default: m.CategoriesPage })),
+)
+const InventoryPage = lazy(() =>
+  import('@/features/inventory/pages/InventoryPage').then((m) => ({ default: m.InventoryPage })),
+)
+const WarehousePage = lazy(() =>
+  import('@/features/inventory/pages/WarehousePage').then((m) => ({ default: m.WarehousePage })),
+)
+const CustomersPage = lazy(() =>
+  import('@/features/customers/pages/CustomersPage').then((m) => ({ default: m.CustomersPage })),
+)
+const CreateCustomerPage = lazy(() =>
+  import('@/features/customers/pages/CreateCustomerPage').then((m) => ({ default: m.CreateCustomerPage })),
+)
+const EditCustomerPage = lazy(() =>
+  import('@/features/customers/pages/EditCustomerPage').then((m) => ({ default: m.EditCustomerPage })),
+)
+const CustomerDetailPage = lazy(() =>
+  import('@/features/customers/pages/CustomerDetailPage').then((m) => ({ default: m.CustomerDetailPage })),
+)
+const CustomerGroupsPage = lazy(() =>
+  import('@/features/customers/pages/CustomerGroupsPage').then((m) => ({ default: m.CustomerGroupsPage })),
+)
+const OrdersPage = lazy(() =>
+  import('@/features/orders/pages/OrdersPage').then((m) => ({ default: m.OrdersPage })),
+)
+const CreateOrderPage = lazy(() =>
+  import('@/features/orders/pages/CreateOrderPage').then((m) => ({ default: m.CreateOrderPage })),
+)
+const OrderDetailPage = lazy(() =>
+  import('@/features/orders/pages/OrderDetailPage').then((m) => ({ default: m.OrderDetailPage })),
+)
+const AnalyticsPage = lazy(() =>
+  import('@/features/analytics').then((m) => ({ default: m.AnalyticsPage })),
+)
+const ImportPage = lazy(() =>
+  import('@/features/import').then((m) => ({ default: m.ImportPage })),
+)
+const ImportJobsPage = lazy(() =>
+  import('@/features/import').then((m) => ({ default: m.ImportJobsPage })),
+)
+const ImportJobDetailPage = lazy(() =>
+  import('@/features/import').then((m) => ({ default: m.ImportJobDetailPage })),
+)
+const ExportPage = lazy(() =>
+  import('@/features/export').then((m) => ({ default: m.ExportPage })),
+)
 
 const router = createBrowserRouter([
   // ── Public routes ──────────────────────────────────────────────────────
@@ -36,16 +89,19 @@ const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
-        // All protected pages share the AppShell (sidebar + header)
+        // All protected pages share the AppShell (sidebar + header). AppShell
+        // wraps its <Outlet> in a single <Suspense> for the lazy pages below.
         element: <AppShell />,
         children: [
           {
+            // Sprint 13D: the real analytics dashboard is the landing page.
+            // Sprint 14: heading + breadcrumb both read "Dashboard" here.
             path: '/',
-            element: <DashboardPlaceholder />,
+            element: <AnalyticsPage title="Dashboard" />,
           },
           {
             path: '/dashboard',
-            element: <DashboardPlaceholder />,
+            element: <AnalyticsPage title="Dashboard" />,
           },
           {
             path: '/profile',
@@ -111,7 +167,7 @@ const router = createBrowserRouter([
           // ── Sprint 9B: Analytics Dashboard ─────────────────────────
           {
             path: '/analytics',
-            element: <AnalyticsPage />,
+            element: <AnalyticsPage title="Analytics" />,
           },
 
           // ── Sprint 10B: Data Import ────────────────────────────────

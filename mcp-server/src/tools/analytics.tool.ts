@@ -450,5 +450,101 @@ export class AnalyticsToolsProvider implements McpProvider {
       }
     );
 
+    // ──────────────────────────────────────────────────────────────────────────
+    // 7. analytics_ai_insights
+    //    AI-generated narrative over the SAME analytics aggregates the six tools
+    //    above expose. REST-only: POST /api/v1/analytics/ai-insights → the
+    //    backend AiAnalyticsService → the backend's LLM provider. MCP never
+    //    calls an LLM, never sees a provider key, never touches the DB.
+    //    Backend DTO: AiInsightsResponse
+    //      available, summary, insights[], recommendations[], generatedAt,
+    //      provider, model.
+    //    When AI is disabled/unconfigured/unavailable the backend still returns
+    //    HTTP 200 with available:false and empty arrays — surfaced as-is here.
+    //    Both dates are REQUIRED (an unbounded window is rejected by the API).
+    // ──────────────────────────────────────────────────────────────────────────
+    server.tool(
+      'analytics_ai_insights',
+      'Generate AI business insights for a date range by reasoning over the existing ' +
+      'ecommerce analytics aggregates (revenue trend, order status mix, top products, ' +
+      'payment methods, customer engagement, inventory risk). Returns a short summary ' +
+      'plus a small set of structured insights and recommendations. The AI uses ONLY ' +
+      'the backend analytics data — it does not invent numbers. If AI is not configured ' +
+      'the call still succeeds with available=false and empty arrays (the dashboard is ' +
+      'unaffected). Both dateFrom and dateTo are required (YYYY-MM-DD or full ISO 8601). ' +
+      'This is a read-only operation — it never modifies data.',
+      {
+        dateFrom: z.string()
+          .describe('Start of the analysis window. "YYYY-MM-DD" or ISO 8601 datetime. Required.'),
+        dateTo: z.string()
+          .describe('End of the analysis window. "YYYY-MM-DD" or ISO 8601 datetime. Required.'),
+      },
+      async ({ dateFrom, dateTo }) => {
+        const from = normalizeToInstant(dateFrom, 'start');
+        const to   = normalizeToInstant(dateTo, 'end');
+        if (!from || !to) {
+          return {
+            content: [{
+              type: 'text',
+              text: 'Error [analytics_ai_insights]: dateFrom and dateTo must be "YYYY-MM-DD" or ISO 8601 datetimes.',
+            }],
+            isError: true,
+          };
+        }
+        if (new Date(from) >= new Date(to)) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Error [analytics_ai_insights]: dateFrom must be before dateTo. Received "${dateFrom}" .. "${dateTo}".`,
+            }],
+            isError: true,
+          };
+        }
+
+        try {
+          const response = await apiClient.post('/analytics/ai-insights', { dateFrom: from, dateTo: to });
+          const data = response.data?.data;
+
+          if (!data) {
+            return {
+              content: [{ type: 'text', text: 'No AI insights payload returned from the backend.' }],
+              isError: true,
+            };
+          }
+
+          // Expose only the safe, structured fields — never a raw provider payload.
+          const safe = {
+            available: data.available === true,
+            summary: typeof data.summary === 'string' ? data.summary : '',
+            insights: Array.isArray(data.insights) ? data.insights : [],
+            recommendations: Array.isArray(data.recommendations) ? data.recommendations : [],
+            generatedAt: data.generatedAt ?? null,
+          };
+
+          return {
+            content: [{ type: 'text', text: JSON.stringify(safe, null, 2) }],
+          };
+        } catch (error) {
+          return toMcpToolError('analytics_ai_insights', error);
+        }
+      }
+    );
+
   }
+}
+
+/**
+ * Normalizes a "YYYY-MM-DD" date (or a full ISO 8601 datetime) to a UTC ISO
+ * instant string the backend accepts. A bare date becomes the start
+ * (00:00:00Z) or end (23:59:59Z) of that day. Returns null if unparseable.
+ */
+function normalizeToInstant(value: string, edge: 'start' | 'end'): string | null {
+  if (typeof value !== 'string' || value.trim() === '') return null;
+  const v = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const iso = `${v}T${edge === 'start' ? '00:00:00' : '23:59:59'}Z`;
+    return Number.isNaN(Date.parse(iso)) ? null : iso;
+  }
+  const ms = Date.parse(v);
+  return Number.isNaN(ms) ? null : new Date(ms).toISOString();
 }

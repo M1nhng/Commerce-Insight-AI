@@ -11,6 +11,9 @@
 | `setup.sh` | One-command local environment setup |
 | `migrate.sh` | Run Flyway database migrations |
 | `seed.sh` | Seed the database with sample data |
+| `demo-up.sh` | Start the full demo stack (`demo` profile + deterministic demo dataset) and wait for health |
+| `demo-reset.sh` | Wipe the demo database/volume and rebuild a clean seeded demo stack |
+| `security-check.mjs` | Static secret / leak scan (`node scripts/security-check.mjs`) |
 
 ---
 

@@ -26,6 +26,7 @@ import { PaymentMethodChart }     from '../components/PaymentMethodChart'
 import { CustomerAnalyticsCard }  from '../components/CustomerAnalyticsCard'
 import { TopProductsTable }       from '../components/TopProductsTable'
 import { getDateRange }           from '../utils/dateUtils'
+import { AiInsightsCard }         from '@/features/ai-insights'
 import type { AnalyticsDateRange } from '../types/analytics.types'
 
 // Default to Last 30 Days
@@ -34,7 +35,16 @@ const DEFAULT_RANGE: AnalyticsDateRange = (() => {
   return { dateFrom: r.dateFrom, dateTo: r.dateTo }
 })()
 
-export function AnalyticsPage() {
+interface AnalyticsPageProps {
+  /**
+   * Heading shown in the page header. Kept in sync with the route's breadcrumb
+   * label (Header.tsx ROUTE_LABELS) so the two never disagree — Sprint 14.
+   * Defaults to "Dashboard" (the `/` and `/dashboard` landing routes).
+   */
+  title?: string
+}
+
+export function AnalyticsPage({ title = 'Dashboard' }: AnalyticsPageProps) {
   const [range, setRange] = useState<AnalyticsDateRange>(DEFAULT_RANGE)
 
   return (
@@ -45,7 +55,7 @@ export function AnalyticsPage() {
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 className="h-6 w-6" style={{ color: 'var(--accent-400)' }} />
             <h1 className="text-2xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-              Ecommerce Analytics
+              {title}
             </h1>
           </div>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -75,6 +85,9 @@ export function AnalyticsPage() {
           <TopProductsTable range={range} />
         </div>
       </div>
+
+      {/* ── AI Business Insights (user-triggered) ───────────────────────── */}
+      <AiInsightsCard range={range} />
     </div>
   )
 }

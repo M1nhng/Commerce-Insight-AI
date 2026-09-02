@@ -21,14 +21,21 @@ public interface OrderRepository extends JpaRepository<Order, UUID>,
     boolean existsByOrderNumber(String orderNumber);
 
     /**
-     * Find order by ID, eagerly loading items, addresses, statusHistory and payment
-     * to avoid N+1 when building the full OrderResponse.
+     * Find order by ID, eagerly loading items, payment and customer.
+     *
+     * <p>Only ONE collection ({@code items}) is fetch-joined here: {@code items},
+     * {@code addresses} and {@code statusHistory} are all {@code List}-typed
+     * {@code @OneToMany} bags, and fetch-joining more than one bag in a single
+     * query throws Hibernate's {@code MultipleBagFetchException} (previously
+     * surfaced as an HTTP 500 on every {@code GET /orders/{id}} — Sprint 14).
+     * {@code addresses} and {@code statusHistory} initialise lazily while the
+     * caller's read-only transaction is still open (see
+     * {@code OrderService#findById}), so the full {@link OrderResponse} is
+     * unchanged — at the cost of two extra selects for a single-order view.
      */
     @Query("""
             SELECT DISTINCT o FROM Order o
             LEFT JOIN FETCH o.items i
-            LEFT JOIN FETCH o.addresses a
-            LEFT JOIN FETCH o.statusHistory sh
             LEFT JOIN FETCH o.payment p
             LEFT JOIN FETCH o.customer c
             WHERE o.id = :id
