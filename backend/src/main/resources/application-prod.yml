@@ -36,8 +36,11 @@ logging:
 management:
   endpoints:
     web:
+      # health/info for load-balancer probes (public); metrics for the monitoring
+      # sidecar — ADMIN-only via SecurityConfig, never public. /env, /beans,
+      # /configprops, /mappings stay unexposed.
       exposure:
-        include: health
+        include: health,info,metrics
   endpoint:
     health:
       show-details: never

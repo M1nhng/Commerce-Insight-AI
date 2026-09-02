@@ -45,8 +45,10 @@ spring:
 management:
   endpoints:
     web:
+      # metrics is exposed so /actuator/metrics/ai.insights.* is queryable in the
+      # demo; SecurityConfig restricts everything past health/info to ROLE_ADMIN.
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: when-authorized
