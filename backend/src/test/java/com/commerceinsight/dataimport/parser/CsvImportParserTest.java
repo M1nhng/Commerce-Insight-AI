@@ -5,6 +5,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -57,6 +58,34 @@ class CsvImportParserTest {
 
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).get("sku")).isEqualTo("SKU-001");
+    }
+
+    @Test
+    @DisplayName("Parse CSV, no BOM, on a stream that does NOT support mark/reset — header parsed correctly")
+    void parseNoBomOnNonResettableStream_headerNotCorrupted() {
+        // Regression test: a multipart upload's stream (backed by a temp file once
+        // Spring writes it to disk) does not support mark/reset. stripBom() must not
+        // depend on mark/reset succeeding, or it silently eats the first 3 header
+        // bytes on every such upload. ByteArrayInputStream (used by every other test
+        // here) supports mark/reset and would never have caught this.
+        String csv = "sku,name,price\nSKU-001,Widget,100.00\n";
+        InputStream nonResettable = new java.io.FilterInputStream(toStream(csv)) {
+            @Override
+            public boolean markSupported() {
+                return false;
+            }
+
+            @Override
+            public synchronized void reset() throws IOException {
+                throw new IOException("mark/reset not supported");
+            }
+        };
+
+        List<ParsedRow> rows = parser.parse(nonResettable, HEADERS, 100);
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).get("sku")).isEqualTo("SKU-001");
+        assertThat(rows.get(0).get("name")).isEqualTo("Widget");
     }
 
     @Test

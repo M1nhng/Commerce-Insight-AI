@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PushbackInputStream;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -89,19 +90,29 @@ public class CsvImportParser implements ImportParser {
     /**
      * Strips the UTF-8 BOM (EF BB BF) if present, so Commons CSV does not
      * include it as part of the first header name.
+     *
+     * <p>Wrapped in a {@link PushbackInputStream} rather than relying on
+     * {@code mark}/{@code reset} on the caller's stream: a multipart file's
+     * stream (backed by a temp file once Spring writes the upload to disk) does
+     * not support {@code mark}/{@code reset}, so a bare {@code reset()} after
+     * peeking 3 bytes silently swallowed the first 3 header bytes on every such
+     * upload (e.g. turning {@code "sku,name,..."} into {@code ",name,..."}).
+     * {@link PushbackInputStream} can always push bytes back, independent of
+     * what the underlying stream supports.
      */
     private Reader stripBom(InputStream inputStream) {
+        PushbackInputStream pushback = new PushbackInputStream(inputStream, 3);
         try {
             byte[] bom = new byte[3];
-            inputStream.mark(3);
-            int read = inputStream.read(bom, 0, 3);
-            // If not BOM, reset stream to beginning
-            if (read < 3 || !(bom[0] == (byte) 0xEF && bom[1] == (byte) 0xBB && bom[2] == (byte) 0xBF)) {
-                inputStream.reset();
+            int read = pushback.read(bom, 0, 3);
+            boolean isBom = read == 3
+                    && bom[0] == (byte) 0xEF && bom[1] == (byte) 0xBB && bom[2] == (byte) 0xBF;
+            if (!isBom && read > 0) {
+                pushback.unread(bom, 0, read);
             }
-            return new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+            return new InputStreamReader(pushback, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            return new InputStreamReader(inputStream, StandardCharsets.UTF_8);
+            return new InputStreamReader(pushback, StandardCharsets.UTF_8);
         }
     }
 
